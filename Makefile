@@ -16,7 +16,7 @@ EXEC = $(addprefix test_,$(EXEC_RAW))
 
 # build cp as a library, including math lib
 SPECIFY_LIBS = -L./build '-Wl,-rpath,./build'
-LIBS_FLAGS = -lm $(SPECIFY_LIBS) -lcp
+LIBS_FLAGS = $(SPECIFY_LIBS) -lcp -lm
 
 
 default: libcp.so
@@ -46,7 +46,7 @@ $(BUILD_DIR)/%.o: $(SRC_DIR)/sampling/%.c
 
 # Rule for building tests
 test_%: $(SRC_TEST)/test_%.c
-	$(CC) $(CFLAGS) $(LIBS_FLAGS) $(INCLUDES) -o $(BUILD_DIR)/$@ $^
+	$(CC) $(CFLAGS)  $(INCLUDES) -o $(BUILD_DIR)/$@ $^ $(LIBS_FLAGS)
 
 
 # We clean object files and binaries
