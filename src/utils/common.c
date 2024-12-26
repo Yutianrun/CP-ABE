@@ -43,8 +43,10 @@ void init_params(int32_t N, uint32_t Q, int32_t K, int32_t P, real SIGMA) {
 
 void init_params_default() {
     int32_t N = 1;
-    uint32_t Q = 1073707009;
-    int32_t K = 30;
+    // uint32_t Q = 1073707009;
+    // int32_t K = 30;
+    int32_t K = 10;
+    uint32_t Q = 1024;
     int32_t P = 1;
     real SIGMA = 7.00;
     init_params(N, Q, K, P, SIGMA);
