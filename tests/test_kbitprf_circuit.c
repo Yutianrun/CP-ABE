@@ -8,6 +8,9 @@
 #include "gen_circuit.h"
 #include "matrix.h"
 #include "sampling.h"
+#include "cprf.h"
+#define PRF_K 128
+
 
 int main() {
     init_sampler();
@@ -36,33 +39,31 @@ int main() {
     free_matrix(inv);
     free_matrix(res);
 
-    // Example hand-crafted circuit
-    // f(x) = not(x1 | (x2 & x3)) = not(x1) & (not(x2) | not(x3))
-    // 2nd version gives extremely similar results
-    circuit* f = circuit_not(circuit_or(
-        gen_leaf(1, true), circuit_and(gen_leaf(2, true), gen_leaf(3, true))));
+    // 使用辅助函数简化主电路
+    int k = 8; // 比特宽度，可以根据需要调整
+
+    // 构建 PRF 电路
+    circuit** prf_output = build_prf_circuit(k);
 
     printf("Circuit : ");
-    print_circuit(*f);
+    print_circuit(**prf_output);
     printf("\n");
-
-    matrix Af = compute_Af(A, *f);
-
-    matrix T = new_matrix(PARAMS.N, PARAMS.L);
-    matrix BIG = new_matrix(PARAMS.N, PARAMS.L * PARAMS.K);
+    matrix Af = compute_Af(A, **prf_output);
 
     int x_max = 1;
     for (int i = 0; i < PARAMS.K; i++) x_max *= 2;
     char output[80];
 
+    matrix T = new_matrix(PARAMS.N, PARAMS.L);
+    matrix BIG = new_matrix(PARAMS.N, PARAMS.L * PARAMS.K);
     for (attribute x = 0; x < x_max; x++) {
-        printf("f(%d)=%d\n", x, compute_f(*f, x));
+        printf("f(%d)=%d\n", x, compute_f(**prf_output, x));
         sprintf(output, "BIG * H = Af + f(x)G for x = %d : done in %%fs\n", x);
         CHRONO(output, {
-            matrix H = compute_H(A, *f, x);
+            matrix H = compute_H(A, **prf_output, x);
             printf("Norm H : %f\n", norm(H));
             matrix R = copy_matrix(Af);
-            if (compute_f(*f, x)) add_matrix(R, G, R);
+            if (compute_f(**prf_output, x)) add_matrix(R, G, R);
 
             for (int i = 1; i < PARAMS.K + 1; i++) {
                 matrix ti = copy_matrix(A[i]);
@@ -80,6 +81,7 @@ int main() {
             free_matrix(R);
         });
     }
+
 
     free_matrix(BIG);
     free_matrix(T);

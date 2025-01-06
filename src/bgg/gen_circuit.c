@@ -33,6 +33,15 @@ circuit* circuit_or(circuit* f, circuit* g) {
     return o;
 }
 
+// 辅助函数实现 XOR
+circuit* circuit_xor(circuit* a, circuit* b) {
+    return circuit_or(
+        circuit_and(a, circuit_not(b)),      // a AND NOT(b)
+        circuit_and(circuit_not(a), b)       // NOT(a) AND b
+    );
+}
+
+
 circuit* gen_circuit(attribute x) {
     /*
     We denote Gi the logic gate associated to xi.
