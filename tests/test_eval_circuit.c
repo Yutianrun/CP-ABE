@@ -40,7 +40,7 @@ int main() {
     free_matrix(res);
 
     // 使用辅助函数简化主电路
-    int k = 8; // 比特宽度，可以根据需要调整
+    // int k = 8; // 比特宽度，可以根据需要调整
 
     // 构建 PRF 电路
     // 定义字句集合
@@ -71,63 +71,48 @@ int main() {
     // 构建复杂 PRF 电路
     circuit* eval = build_eval_prf(3, clauses, num_clauses);
 
-    // printf("Circuit : ");
-    // print_circuit(*eval);
-    // printf("\n");
-    // matrix Af = compute_Af(A, *eval);
+    printf("Circuit : ");
+    print_circuit(*eval);
+    printf("\n");
+    matrix Af = compute_Af(A, *eval);
 
-    // int x_max = 1;
-    // for (int i = 0; i < PARAMS.K; i++) x_max *= 2;
-    // char output[80];
+    int x_max = 1;
+    for (int i = 0; i < PARAMS.K; i++) x_max *= 2;
+    char output[80];
 
-    // matrix T = new_matrix(PARAMS.N, PARAMS.L);
-    // matrix BIG = new_matrix(PARAMS.N, PARAMS.L * PARAMS.K);
-    // for (attribute x = 0; x < x_max; x++) {
-    //     printf("f(%d)=%d\n", x, compute_f(*eval, x));
-    //     sprintf(output, "BIG * H = Af + f(x)G for x = %d : done in %%fs\n", x);
-    //     CHRONO(output, {
-    //         matrix H = compute_H(A, *eval, x);
-    //         printf("Norm H : %f\n", norm(H));
-    //         matrix R = copy_matrix(Af);
-    //         if (compute_f(*eval, x)) add_matrix(R, G, R);
+    matrix T = new_matrix(PARAMS.N, PARAMS.L);
+    matrix BIG = new_matrix(PARAMS.N, PARAMS.L * PARAMS.K);
+    for (attribute x = 0; x < x_max; x++) {
+        printf("f(%d)=%d\n", x, compute_f(*eval, x));
+        sprintf(output, "BIG * H = Af + f(x)G for x = %d : done in %%fs\n", x);
+        CHRONO(output, {
+            matrix H = compute_H(A, *eval, x);
+            printf("Norm H : %f\n", norm(H));
+            matrix R = copy_matrix(Af);
+            if (compute_f(*eval, x)) add_matrix(R, G, R);
 
-    //         for (int i = 1; i < PARAMS.K + 1; i++) {
-    //             matrix ti = copy_matrix(A[i]);
-    //             if (get_xn(x, i)) add_matrix(ti, G, ti);
-    //             for (int j = 0; j < PARAMS.N; j++)      // ti.rows = PARAMS.N
-    //                 for (int k = 0; k < PARAMS.L; k++)  // ti.columns = PARAMS.L
-    //                     matrix_element(BIG, j, (i - 1) * PARAMS.L + k) =
-    //                         matrix_element(ti, j, k);
-    //             free_matrix(ti);
-    //         }
-    //         mul_matrix(BIG, H, T);
+            for (int i = 1; i < PARAMS.K + 1; i++) {
+                matrix ti = copy_matrix(A[i]);
+                if (get_xn(x, i)) add_matrix(ti, G, ti);
+                for (int j = 0; j < PARAMS.N; j++)      // ti.rows = PARAMS.N
+                    for (int k = 0; k < PARAMS.L; k++)  // ti.columns = PARAMS.L
+                        matrix_element(BIG, j, (i - 1) * PARAMS.L + k) =
+                            matrix_element(ti, j, k);
+                free_matrix(ti);
+            }
+            mul_matrix(BIG, H, T);
 
-    //         assert(equals(R, T));
-    //         free_matrix(H);
-    //         free_matrix(R);
-    //     });
-    // }
+            assert(equals(R, T));
+            free_matrix(H);
+            free_matrix(R);
+        });
+    }
 
+    free_matrix(BIG);
+    free_matrix(T);
 
+    free_matrix(Af);
 
-    // circuit** constrain = build__prf(k);
-
-    // printf("Circuit : ");
-    // print_circuit(*eval);
-    // printf("\n");
-    // matrix Af = compute_Af(A, *eval);
-
-    // int x_max = 1;
-    // for (int i = 0; i < PARAMS.K; i++) x_max *= 2;
-    // char output[80];
-
-
-
-    // free_matrix(BIG);
-    // free_matrix(T);
-
-    // free_matrix(Af);
-
-    // free_matrixes(A, PARAMS.K + 1);
-    // free_matrix(G);
+    free_matrixes(A, PARAMS.K + 1);
+    free_matrix(G);
 }

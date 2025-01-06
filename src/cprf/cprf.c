@@ -62,11 +62,7 @@ circuit* extract_v(int k, int* T, int t_size, circuit** x) {
     return v;
 }
 
-// 构建复杂 PRF 电路，包含多个字句
 circuit* build_eval_prf(int k, Clause* clauses, int num_clauses) {
-    // 假设前 k 位是 x，接下来的 k 位是 msk
-    // 每个字句包含一个 T (长度 t_size) 和相应的 v
-
     // 生成 x 和 msk 的叶节点
     circuit** x = (circuit**)malloc(k * sizeof(circuit*));
     circuit** msk = (circuit**)malloc(k * sizeof(circuit*));
@@ -91,63 +87,40 @@ circuit* build_eval_prf(int k, Clause* clauses, int num_clauses) {
         Clause current_clause = clauses[i];
         // 提取 v 比特
         circuit* v = extract_v(k, current_clause.T, current_clause.t_size, x);
+        if (v == NULL) {
+            fprintf(stderr, "提取 v 失败\n");
+            exit(1);
+        }
 
         // 构建 (T, v) 的输入电路
-        // 这里假设将 T 和 v 合并为一个电路，例如通过 OR 或其他逻辑门
-        // 具体实现取决于如何表示 (T, v)
-        // 这里简单地通过 XOR 组合 T 和 v
         circuit* T_v = NULL;
         for(int j = 0; j < current_clause.t_size; j++) {
-            // 生成 T[j] 的电路
-            // 这里 T[j] 是一个索引，作为电路的输入
-            // 假设 T 本身也是一些特定位的输入
-            // 具体取决于 (T, v) 的表示方式
-            // 这里假设 T 只是 v 的提取位置，不需要额外电路
-            // 所以直接使用 v 作 PRF 的输入
             if (T_v == NULL) {
-                T_v = circuit_not(v); // 举例操作
+                T_v = circuit_not(v);
             } else {
-                T_v = circuit_xor(T_v, v); // 举例操作
+                T_v = circuit_xor(T_v, v);
+            }
+            if (T_v == NULL) {
+                fprintf(stderr, "构建 T_v 失败\n");
+                exit(1);
             }
         }
 
-        // 生成 PRF(msk, (T,v))，即 PRF 的输入是 T_v，密钥是 msk
-        // 假设 PRF(msk, input) 已通过 build_prf_circuit 实现
-        // 这里需要将 msk 和 T_v 作为 PRF 的输入
-        // 假设 PRF 以某种方式将 msk 与输入组合
-        // 具体实现需要根据 PRF 的定义调整
-
-        // 这里简化为直接调用 PRF
-        // 需要一个函数将输入电路和密钥电路传递给 PRF
-        // 参考 build_prf_circuit 函数
-
-        // 假设 build_prf_circuit 接受 x 和 msk
-        // 这里需要构建 PRF(meshk, T_v)
-        // 需要将 T_v 作为 x 的一部分
-
-        // 为简化示例，假设每个 PRF 只以 T_v 为输入，并共享 msk
-        // 这里需要更多的逻辑门组合来将 msk 与 (T,v) 结合
-        // 具体实现可能需要扩展 PRF 电路的输入
-
-        // 这里假设存在一个函数 PRF(msk, T_v)，返回 sk_(T,v)
-        // 具体细节需要根据你的 PRF 实现调整
-        // 因此，此处仅提供示例代码
-
-        // 示例：sk_(T,v) = PRF(msk, T_v)
-        // 假设 PRF 函数已能处理这样的输入
-        // 这里使用 build_prf_circuit 生成 sk_(T,v)
-        // 将 (T,v) 作为 PRF 的输入，需要将其与 msk 结合
-
         // 构建 PRF 输入电路：将 msk 和 T_v 组合
-        // 这里假设组合方式为 OR, XOR 等，具体取决于 PRF 的要求
-        // 示例中将 msk 和 T_v 通过 XOR 组合
         circuit* prf_input = circuit_xor(v, x[0]); // 仅示例，实际需要组合所有相关位
+        if (prf_input == NULL) {
+            fprintf(stderr, "构建 PRF 输入失败\n");
+            exit(1);
+        }
 
         // 生成 PRF 电路
         circuit** prf = build_prf_circuit(k);
-        // 在实际实现中，应该将 prf_input 作为 PRF 的输入
-        // 这里简化为直接使用 prf[0] 作为 sk_(T,v)
-        sk[i] = prf[0]; // 示例，实际需要正确映射
+        if (prf == NULL || prf[0] == NULL) {
+            fprintf(stderr, "生成 PRF 电路失败\n");
+            exit(1);
+        }
+
+        sk[i] = prf[0];
     }
 
     // 第二步：计算 PRF(sk_(T,v), x) for each clause
@@ -158,16 +131,12 @@ circuit* build_eval_prf(int k, Clause* clauses, int num_clauses) {
     }
 
     for(int i = 0; i < num_clauses; i++) {
-        // 计算 PRF(sk_(T,v), x)
-        // 类似于第一步，需要将 sk[i] 和 x 作为输入
-        // 这里简化为直接调用 PRF 电路
-        // 实际实现需要根据 PRF 的定义调整
-
-        // 这里假设 PRF 接受 sk[i] 作为密钥，并以 x 作为输入
-        // 因此需要将 sk[i] 作为 PRF 的密钥，x 作为输入
-        // 示例中使用 build_prf_circuit 生成 PRF 输出
         circuit** prf = build_prf_circuit(k);
-        prf_outputs[i] = prf[0]; // 示例，实际需要正确映射
+        if (prf == NULL || prf[0] == NULL) {
+            fprintf(stderr, "生成 PRF 输出失败\n");
+            exit(1);
+        }
+        prf_outputs[i] = prf[0];
     }
 
     // 将所有 PRF 输出异或
@@ -177,21 +146,23 @@ circuit* build_eval_prf(int k, Clause* clauses, int num_clauses) {
             final_y = prf_outputs[i];
         } else {
             final_y = circuit_xor(final_y, prf_outputs[i]);
+            if (final_y == NULL) {
+                fprintf(stderr, "异或 PRF 输出失败\n");
+                exit(1);
+            }
         }
     }
 
     // 清理中间电路
-    for(int i = 0; i < k; i++) {
-        // 假设不需要释放 x 和 msk，因为它们可能被多次引用
-    }
-    for(int i = 0; i < num_clauses; i++) {
-        free_circuit(sk[i]);
-        free_circuit(prf_outputs[i]);
-    }
+    // for(int i = 0; i < num_clauses; i++) {
+    //     free_circuit(sk[i]);
+    //     // 移除对 prf_outputs[i] 的释放
+    //     // free_circuit(prf_outputs[i]);
+    // }
     free(x);
     free(msk);
     free(sk);
-    free(prf_outputs);
+    free(prf_outputs); // 仅释放数组指针，不释放其中的电路节点
 
     return final_y;
 }
