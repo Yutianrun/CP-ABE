@@ -1,14 +1,18 @@
 // prf_circuit.c
-#define PRF_K 128
 #include "cprf.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
 #include <assert.h>
+#define ROUND 4
+#define encode_len 6
+
 
 
 // 构建单个 PRF 电路的函数（已修正 n 的索引）
-circuit** build_prf_circuit(int k) {
+// 修改后的构建单个 PRP 电路的函数，使用Feistel结构
+circuit** build_prp_circuit(int k) {
+    int rounds = ROUND;
     // 创建一个数组存储输出电路
     circuit** y = (circuit**)malloc(k * sizeof(circuit*));
     if (y == NULL) {
@@ -16,207 +20,336 @@ circuit** build_prf_circuit(int k) {
         exit(1);
     }
 
-    for(int i = 0; i < k; i++) {
-        // 使用1基索引，确保不会传递 n <= 0
-        circuit* x_i = gen_leaf(i + 1, false); // 输入 x[i] -> n = i + 1
-        circuit* x_ip1 = gen_leaf((i + 1) % k + 1, false); // 输入 x[i+1] -> n = (i + 1) % k + 1
-        circuit* msk_i = gen_leaf(i + 1, true); // 密钥 msk[i] -> n = i + 1
-        circuit* msk_ip1 = gen_leaf((i + 1) % k + 1, true); // 密钥 msk[i+1] -> n = (i + 1) % k + 1
-        circuit* msk_ip2 = gen_leaf((i + 2) % k + 1, true); // 密钥 msk[i+2] -> n = (i + 2) % k + 1
+    for(int i = 0; i < k/2; i++) {
+        // 分割输入为左右两部分
+        circuit* left = gen_leaf(i + 1, false); // 左半部分 x[i]
+        circuit* right = gen_leaf((i + 1) +k/2, false); // 右半部分 x[i+1]
+        circuit* msk = gen_leaf(i + 1 + k, false); // 密钥 msk[i]
 
-        // 第一层逻辑门组合
-        circuit* a = circuit_and(x_i, msk_i); // a = x[i] AND msk[i]
-        circuit* b = circuit_or(x_ip1, msk_ip1); // b = x[i+1] OR msk[i+1]
-        circuit* c = circuit_not(msk_ip2); // c = NOT msk[i+2]
+        
+        circuit* msk2 = gen_leaf(i + 1 + k + k/2, false); // 密钥 msk[i]
 
-        // 第二层逻辑门组合
-        circuit* d = circuit_xor(a, b); // d = a XOR b
-        circuit* e = circuit_and(d, c); // e = d AND c
-        circuit* f = circuit_or(e, a); // f = e OR a
+        // circuit* msk3 = gen_leaf(i + 1 + k, false); // 密钥 msk[i]
 
-        // 第三层逻辑门组合
-        circuit* g = circuit_not(f); // g = NOT f
-        circuit* h = circuit_xor(g, d); // h = g XOR d
+        // circuit* msk4 = gen_leaf(i + 1 + k, false); // 密钥 msk[i]
+        circuit* round_keys[rounds];
+        for (int r = 0; r < rounds; r++) {
+            round_keys[r] = gen_leaf(i + 1 + k + r * k / rounds, false);
+        }
 
-        // 将结果作为输出位 y[i]
-        y[i] = h;
+        circuit* L = left;
+        circuit* R = right;
+
+        for(int r = 0; r < rounds; r++) {
+            // 轮函数
+            circuit* F;
+            if (r % 2 == 0) {
+            F = circuit_xor(R, msk); // 偶数轮使用 msk
+            } else {
+            F = circuit_xor(R, msk2); // 奇数轮使用 msk2
+            }
+            // Feistel交换
+            circuit* new_L = R;
+            circuit* new_R = circuit_xor(L, F); // 新右 = L XOR F
+            L = new_L;
+            R = new_R;
+        }
+
+        // 合并左右部分作为输出
+        y[i] = L; // 输出左部分
+        y[(i + k/2) % k] = R; // 输出右部分
     }
 
     return y;
 }
 
-// 辅助函数：提取 v 比特
-circuit* extract_v(int k, int* T, int t_size, circuit** x) {
-    // 假设 v 的长度为 t_size，依次提取对应的 x 位
-    // 比如 T = (1, 2)，则 v = x1, x2
-    // 将 v 通过 XOR 组合起来作为唯一输入
-    circuit* v = NULL;
-    for(int i = 0; i < t_size; i++) {
-        circuit* bit = x[T[i] - 1]; // T 是1基
-        if (v == NULL) {
-            v = bit;
-        } else {
-            v = circuit_or(v, bit); // 你可以根据需要选择合适的逻辑门组合
-        }
-    }
-    return v;
-}
 
-circuit* build_eval_prf(int k, Clause* clauses, int num_clauses) {
-    // 生成 x 和 msk 的叶节点
-    circuit** x = (circuit**)malloc(k * sizeof(circuit*));
-    circuit** msk = (circuit**)malloc(k * sizeof(circuit*));
-    if (x == NULL || msk == NULL) {
-        fprintf(stderr, "内存分配失败\n");
-        exit(1);
-    }
-    for(int i = 0; i < k; i++) {
-        x[i] = gen_leaf(i + 1, false); // x1, x2, ..., xk
-        msk[i] = gen_leaf(k + i + 1, true); // msk1, msk2, ..., mskk
-    }
-
-    // 存储所有 sk_(T,v)
-    circuit** sk = (circuit**)malloc(num_clauses * sizeof(circuit*));
-    if (sk == NULL) {
+circuit** initial_prp_circuit(int k, circuit** x, circuit** msk) {
+    int rounds = ROUND;
+    // 创建一个数组存储输出电路
+    circuit** y = (circuit**)malloc(k * sizeof(circuit*));
+    if (y == NULL) {
         fprintf(stderr, "内存分配失败\n");
         exit(1);
     }
 
-    // 第一步：计算 sk_(T,v) = PRF(msk, (T,v)) for each clause
-    for(int i = 0; i < num_clauses; i++) {
-        Clause current_clause = clauses[i];
-        // 提取 v 比特
-        circuit* v = extract_v(k, current_clause.T, current_clause.t_size, x);
-        if (v == NULL) {
-            fprintf(stderr, "提取 v 失败\n");
-            exit(1);
-        }
+    for(int i = 0; i < k/2; i++) {
+        // 使用传入的 x 和 msk 数组
+        circuit* left = x[i]; // 左半部分 x[i]
+        circuit* right = x[i + k/2]; // 右半部分 x[i + k/2]
+        circuit* msk1 = msk[i]; // 密钥 msk[i]
+        circuit* msk2 = msk[i + k/2]; // 密钥 msk[i + k/2]
 
-        // 构建 (T, v) 的输入电路
-        circuit* T_v = NULL;
-        for(int j = 0; j < current_clause.t_size; j++) {
-            if (T_v == NULL) {
-                T_v = circuit_not(v);
+        circuit* L = left;
+        circuit* R = right;
+
+        for(int r = 0; r < rounds; r++) {
+            // 轮函数
+            circuit* F;
+            if (r % 2 == 0) {
+                F = circuit_xor(R, msk1); // 偶数轮使用 msk1
             } else {
-                T_v = circuit_xor(T_v, v);
+                F = circuit_xor(R, msk2); // 奇数轮使用 msk2
             }
-            if (T_v == NULL) {
-                fprintf(stderr, "构建 T_v 失败\n");
-                exit(1);
-            }
+            // Feistel交换
+            circuit* new_L = R;
+            circuit* new_R = circuit_xor(L, F); // 新右 = L XOR F
+            L = new_L;
+            R = new_R;
         }
 
-        // 构建 PRF 输入电路：将 msk 和 T_v 组合
-        circuit* prf_input = circuit_xor(v, x[0]); // 仅示例，实际需要组合所有相关位
-        if (prf_input == NULL) {
-            fprintf(stderr, "构建 PRF 输入失败\n");
-            exit(1);
-        }
-
-        // 生成 PRF 电路
-        circuit** prf = build_prf_circuit(k);
-        if (prf == NULL || prf[0] == NULL) {
-            fprintf(stderr, "生成 PRF 电路失败\n");
-            exit(1);
-        }
-
-        sk[i] = prf[0];
+        // 合并左右部分作为输出
+        y[i] = L; // 输出左部分
+        y[(i + k/2) % k] = R; // 输出右部分
     }
 
-    // 第二步：计算 PRF(sk_(T,v), x) for each clause
-    circuit** prf_outputs = (circuit**)malloc(num_clauses * sizeof(circuit*));
+    return y;
+}
+
+
+// typedef struct {
+//     int* T;       // T 的位置数组
+//     int t_len;    // T 的长度
+//     int* v;       // 对应位置上的值数组
+//     int v_len;    // v 的长度（应与 t_len 相同）
+// } Clause;
+
+circuit* circuit_set_bit(bool bit_value, circuit* leaf_circuit) {
+    if (bit_value) {
+        // 如果 bit_value 是 1，创建一个恒定返回 1 的电路
+        circuit* not_one = circuit_not(leaf_circuit); // 取反，得到 0
+        return circuit_or(leaf_circuit, not_one); // 1 OR 0 恒定返回 1
+    } else {
+        // 如果 bit_value 是 0，创建一个恒定返回 0 的电路
+        circuit* not_zero = circuit_not(leaf_circuit); // 取反，得到 1
+        return circuit_and(leaf_circuit, not_zero); // 0 AND 1 恒定返回 0
+    }
+}
+
+
+circuit** encode_Tv(int k, Clause clause, circuit** x) {
+    // 初始化一个 k 位全0的电路
+    circuit** encoded = (circuit**)malloc(sizeof(circuit*) * k*clause.t_len);
+    if (encoded == NULL) {
+        fprintf(stderr, "内存分配失败\n");
+        exit(1);
+    }
+    for(int i =0;i<clause.t_len;i++){
+        // printf("T[%d] = %d\n",i,clause.T[i]);
+        encoded[clause.T[i]] = circuit_set_bit(1, x[0]);
+        encoded[clause.T[i]+k/2] = x[clause.T[i]];
+    }
+
+    for(int i = 0; i < k; i++) {
+        if (encoded[i] == NULL) {
+            // printf("encoded[%d] is NULL\n", i);
+            encoded[i] = circuit_set_bit(0, x[0]);
+        }
+    }
+
+    return encoded;
+}
+
+// 分配 sk_tv 的函数
+circuit*** allocate_sk_tv(int num_clauses, int k) {
+    circuit*** sk_tv = (circuit***)malloc(num_clauses * sizeof(circuit**));
+    if (sk_tv == NULL) {
+        fprintf(stderr, "内存分配失败用于 sk_tv\n");
+        exit(1);
+    }
+
+    for(int i = 0; i < num_clauses; i++) {
+        sk_tv[i] = (circuit**)malloc(k * sizeof(circuit*));
+        if (sk_tv[i] == NULL) {
+            fprintf(stderr, "内存分配失败用于 sk_tv[%d]\n", i);
+            for(int j = 0; j < i; j++) {
+                free(sk_tv[j]);
+            }
+            free(sk_tv);
+            exit(1);
+        }
+    }
+
+    return sk_tv;
+}
+
+// 释放 sk_tv 的函数
+void free_sk_tv(circuit*** sk_tv, int num_clauses) {
+    for(int i = 0; i < num_clauses; i++) {
+        free(sk_tv[i]);
+    }
+    free(sk_tv);
+}
+
+// 构建 sk_tv 的函数
+circuit*** build_sk_tv(int k, Clause* clauses, int num_clauses, circuit** msk, circuit** x) {
+    circuit*** sk_tv = allocate_sk_tv(num_clauses, k);
+
+    for(int i = 0; i < num_clauses; i++) {
+        // 编码 (T, v) 为8位
+        circuit** encoded_Tv = encode_Tv(k, clauses[i], x);
+
+        // 构建 PRF 的输入：前8位为 encoded_Tv，后8位为 msk
+        // 这里 k=8
+        sk_tv[i] = initial_prp_circuit(k, encoded_Tv, msk);
+        if (sk_tv[i] == NULL) {
+            fprintf(stderr, "合并输入失败用于 sk_tv[%d]\n", i);
+            free_sk_tv(sk_tv, num_clauses);
+            exit(1);
+        }
+    }
+    return sk_tv;
+}
+
+
+circuit** final_prf(int k, circuit*** sk_tv, int num_clauses, circuit** x) {
+    circuit** prf_outputs = (circuit**)malloc(k * sizeof(circuit*));
     if (prf_outputs == NULL) {
-        fprintf(stderr, "内存分配失败\n");
+        fprintf(stderr, "内存分配失败用于 prf_outputs\n");
         exit(1);
     }
 
-    for(int i = 0; i < num_clauses; i++) {
-        circuit** prf = build_prf_circuit(k);
-        if (prf == NULL || prf[0] == NULL) {
-            fprintf(stderr, "生成 PRF 输出失败\n");
+    for (int i = 0; i < num_clauses; i++) {
+        // 使用 sk_tv[i] 作为密钥，x 作为输入，计算 PRF 电路
+        circuit** prf_output = initial_prp_circuit(k, x, sk_tv[i]);
+        if (prf_output == NULL) {
+            fprintf(stderr, "PRF 计算失败用于 prf_output[%d]\n", i);
+            free(prf_outputs);
             exit(1);
         }
-        prf_outputs[i] = prf[0];
-    }
 
-    // 将所有 PRF 输出异或
-    circuit* final_y = NULL;
-    for(int i = 0; i < num_clauses; i++) {
-        if (final_y == NULL) {
-            final_y = prf_outputs[i];
-        } else {
-            final_y = circuit_xor(final_y, prf_outputs[i]);
-            if (final_y == NULL) {
-                fprintf(stderr, "异或 PRF 输出失败\n");
-                exit(1);
+        if (i==0){
+            for(int j = 0; j < k; j++) {
+                prf_outputs[j] = prf_output[j];
             }
         }
-    }
-
-    // 清理中间电路
-    // for(int i = 0; i < num_clauses; i++) {
-    //     free_circuit(sk[i]);
-    //     // 移除对 prf_outputs[i] 的释放
-    //     // free_circuit(prf_outputs[i]);
-    // }
-    free(x);
-    free(msk);
-    free(sk);
-    free(prf_outputs); // 仅释放数组指针，不释放其中的电路节点
-
-    return final_y;
-}
-
-
-// 新增函数：compute_policy_prf
-#include "cprf.h"
-#include <string.h>
-
-// 定义政策函数f，基于t-CNF
-int policy(int* T, int t_size) {
-    // 示例：简单的t-CNF判断，实际实现根据具体政策
-    // 返回1表示满足，0表示不满足
-    // 此处假设所有bit为1时满足
-    for(int i = 0; i < t_size; i++) {
-        if(T[i] != 1) {
-            return 0;
+        else{
+            for(int j = 0; j < k; j++) {
+                prf_outputs[j] = circuit_xor(prf_outputs[j], prf_output[j]);
+            }
         }
+        return prf_output;
     }
-    return 1;
+
+    return prf_outputs;
+
 }
 
-circuit* compute_policy_prf(int k, int* T, int t_size, Clause* clauses, int num_clauses) {
-    // 第一步：计算所有满足policy的(T, v)对
-    // 这里假设v为T的复制
-    if(!policy(T, t_size)) {
-        return NULL;
-    }
+circuit** build_eval_circuit(int k, Clause* clauses, int num_clauses, circuit** msk, circuit** x) {
+    // 构建 sk_tv
+    circuit*** sk_tv = build_sk_tv(k, clauses, num_clauses, msk, x);
 
-    // 第二步：计算PRF值
-    circuit** prf_values = (circuit**)malloc(num_clauses * sizeof(circuit*));
-    if(prf_values == NULL) {
-        fprintf(stderr, "内存分配失败\n");
-        exit(1);
-    }
+    // 计算最终的 PRF 输出
+    circuit** prf_outputs = final_prf(k, sk_tv, num_clauses, x);
 
-    for(int i = 0; i < num_clauses; i++) {
-        // 使用现有的build_prf_circuit函数
-        circuit** prf = build_prf_circuit(k);
-        prf_values[i] = prf[0];
-    }
+    return prf_outputs;
 
-    // 第三步：异或所有PRF值
-    circuit* final_prf = NULL;
-    for(int i = 0; i < num_clauses; i++) {
-        if(final_prf == NULL) {
-            final_prf = prf_values[i];
-        } else {
-            final_prf = circuit_xor(final_prf, prf_values[i]);
+    
+}
+
+
+
+typedef struct {
+    int* T;       // T 的位置数组
+    int* v;       // 对应位置上的值数组
+} Pair;
+
+// 计算 S^f_i
+Pair* compute_Sf_i(Clause clause, Pair* S, int S_len, int* result_len) {
+    Pair* Sf_i = (Pair*)malloc(S_len * sizeof(Pair)); // 最多 S_len 个结果
+    *result_len = 0;
+
+    for (int i = 0; i < S_len; i++) {
+        Pair current = S[i];
+        if (clause.f(current.v) == 1) { // 如果 f_i(v) = 1
+            Sf_i[*result_len] = current; // 添加到结果中
+            (*result_len)++;
         }
     }
 
-    // 清理
-    free(prf_values);
-
-    return final_prf;
+    return Sf_i;
 }
+
+
+// 计算 S^f_rest
+Pair* compute_Sf_rest(Clause* clauses, int num_clauses, Pair* S, int S_len, int* result_len) {
+    Pair* Sf_rest = (Pair*)malloc(S_len * sizeof(Pair)); // 最多 S_len 个结果
+    *result_len = 0;
+
+    for (int i = 0; i < S_len; i++) {
+        Pair current = S[i];
+        bool has_clause = false;
+
+        // 检查是否有任何子句与当前 (T, v) 不一致
+        for (int j = 0; j < num_clauses; j++) {
+            if (clauses[j].f(current.v) == 1) {
+                has_clause = true;
+                break;
+            }
+        }
+
+        if (!has_clause) {
+            Sf_rest[*result_len] = current; // 添加到结果中
+            (*result_len)++;
+        }
+    }
+
+    return Sf_rest;
+}
+
+
+// 计算 S^f
+Pair* compute_Sf(Clause* clauses, int num_clauses, Pair* S, int S_len, int* result_len) {
+    int total_len = 0;
+    Pair* Sf = (Pair*)malloc(S_len * sizeof(Pair)); // 最多 S_len 个结果
+
+    // 计算 S^f_rest
+    int rest_len;
+    Pair* Sf_rest = compute_Sf_rest(clauses, num_clauses, S, S_len, &rest_len);
+    for (int i = 0; i < rest_len; i++) {
+        Sf[total_len++] = Sf_rest[i];
+    }
+    free(Sf_rest);
+
+    // 计算每个 S^f_i
+    for (int i = 0; i < num_clauses; i++) {
+        int sf_i_len;
+        Pair* Sf_i = compute_Sf_i(clauses[i], S, S_len, &sf_i_len);
+        for (int j = 0; j < sf_i_len; j++) {
+            Sf[total_len++] = Sf_i[j];
+        }
+        free(Sf_i);
+    }
+
+    *result_len = total_len;
+    return Sf;
+}
+
+
+// 计算 sk_f
+circuit** compute_sk_f(Pair* Sf, int Sf_len, circuit** msk) {
+    circuit** sk_f = (circuit**)malloc(Sf_len * sizeof(circuit*));
+
+    for (int i = 0; i < Sf_len; i++) {
+        Pair current = Sf[i];
+        // 计算 sk_{T,v} = P.Eval_{msk}(T || v)
+        // 假设有一个函数 P_Eval 来计算
+        sk_f[i] = P_Eval(msk, current.T, current.v); // 伪代码，具体实现取决于电路库
+    }
+
+    return sk_f;
+}
+
+
+// 综合构建电路的主函数
+circuit** build_constrain_circuit(Clause* clauses, int num_clauses, Pair* S, int S_len, circuit** msk) {
+    int result_len;
+    Pair* Sf = compute_Sf(clauses, num_clauses, S, S_len, &result_len);
+    circuit** sk_f = compute_sk_f(Sf, result_len, msk);
+
+    // 释放 Sf
+    free(Sf);
+
+    return sk_f; // 返回计算出的 sk_f
+}
+

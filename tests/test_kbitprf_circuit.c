@@ -1,6 +1,7 @@
 #include <assert.h>
 #include <stdio.h>
 #include <time.h>
+#include <string.h>
 
 #include "attribute.h"
 #include "circuit.h"
@@ -40,53 +41,67 @@ int main() {
     free_matrix(res);
 
     // 使用辅助函数简化主电路
-    int k = 8; // 比特宽度，可以根据需要调整
-
+    int prf_k = 8; // 比特宽度，可以根据需要调整
     // 构建 PRF 电路
-    circuit** prf_output = build_prf_circuit(k);
+    circuit** prf_output = build_prp_circuit(prf_k);
 
-    printf("Circuit : ");
-    print_circuit(**prf_output);
-    printf("\n");
-    matrix Af = compute_Af(A, **prf_output);
+    // printf("Circuit : ");
+    // print_circuit(**prf_output);
+    // printf("\n");
 
-    int x_max = 1;
-    for (int i = 0; i < PARAMS.K; i++) x_max *= 2;
     char output[80];
 
     matrix T = new_matrix(PARAMS.N, PARAMS.L);
     matrix BIG = new_matrix(PARAMS.N, PARAMS.L * PARAMS.K);
-    for (attribute x = 0; x < x_max; x++) {
-        printf("f(%d)=%d\n", x, compute_f(**prf_output, x));
-        sprintf(output, "BIG * H = Af + f(x)G for x = %d : done in %%fs\n", x);
-        CHRONO(output, {
-            matrix H = compute_H(A, **prf_output, x);
-            printf("Norm H : %f\n", norm(H));
-            matrix R = copy_matrix(Af);
-            if (compute_f(**prf_output, x)) add_matrix(R, G, R);
 
-            for (int i = 1; i < PARAMS.K + 1; i++) {
-                matrix ti = copy_matrix(A[i]);
-                if (get_xn(x, i)) add_matrix(ti, G, ti);
-                for (int j = 0; j < PARAMS.N; j++)      // ti.rows = PARAMS.N
-                    for (int k = 0; k < PARAMS.L; k++)  // ti.columns = PARAMS.L
-                        matrix_element(BIG, j, (i - 1) * PARAMS.L + k) =
-                            matrix_element(ti, j, k);
-                free_matrix(ti);
-            }
-            mul_matrix(BIG, H, T);
+    int x_max = 1;
+    for (int i = 0; i < prf_k; i++) x_max *= 2;
 
-            assert(equals(R, T));
-            free_matrix(H);
-            free_matrix(R);
-        });
+    uint32_t mask = rand() % (1 << prf_k); // 随机生成一个kbit的掩码
+    for (attribute x = 0; x < x_max; x++) { // 前k位遍历0-x_max
+        uint32_t input = (x << prf_k) | mask; // 组合前k位和后k位
+        char concatenated_output[256] = "";
+        for (attribute i = 0; i < prf_k; i++) {
+            sprintf(concatenated_output + strlen(concatenated_output), "%d", compute_f(*prf_output[i], input));
+        }
+        char binary_input[2 * prf_k + 1];
+        for (int j = 0; j < 2 * prf_k; j++) {
+            binary_input[2 * prf_k - 1 - j] = (input & (1 << j)) ? '1' : '0';
+        }
+        binary_input[2 * prf_k] = '\0';
+        printf("prf_output: f(%d)=%s (binary: %.*s %.*s)\n", input, concatenated_output, prf_k, binary_input, prf_k, binary_input + prf_k);
+
+        for (int i = 0; i < prf_k; i++) {
+            sprintf(output, "BIG * H = Af + f(x)G for x = %d, bit %d = %d : done in %%fs\n", input, i, compute_f(*prf_output[i], input));
+            CHRONO(output, {
+                matrix Af = compute_Af(A, *prf_output[i]);
+                matrix H = compute_H(A, *prf_output[i], input);
+                printf("Norm H : %f\n", norm(H));
+                matrix R = copy_matrix(Af);
+                if (compute_f(*prf_output[i], input)) add_matrix(R, G, R);
+
+                for (int j = 1; j < PARAMS.K + 1; j++) {
+                    matrix ti = copy_matrix(A[j]);
+                    if (get_xn(input, j)) add_matrix(ti, G, ti);
+                    for (int m = 0; m < PARAMS.N; m++)      // ti.rows = PARAMS.N
+                    for (int n = 0; n < PARAMS.L; n++)  // ti.columns = PARAMS.L
+                        matrix_element(BIG, m, (j - 1) * PARAMS.L + n) =
+                        matrix_element(ti, m, n);
+                    free_matrix(ti);
+                }
+                mul_matrix(BIG, H, T);
+
+                assert(equals(R, T));
+                free_matrix(H);
+                free_matrix(Af);
+                free_matrix(R);
+            });
+        }
     }
 
 
     free_matrix(BIG);
     free_matrix(T);
-
-    free_matrix(Af);
 
     free_matrixes(A, PARAMS.K + 1);
     free_matrix(G);
