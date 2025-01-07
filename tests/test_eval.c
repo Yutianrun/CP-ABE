@@ -25,7 +25,7 @@ int main() {
     int prf_k = 8; // 比特宽度，可以根据需要调整
 
     int num_clauses = 2;
-    Clause* clauses = (Clause*)malloc(num_clauses * sizeof(Clause));
+    ClauseT* clauses = (ClauseT*)malloc(num_clauses * sizeof(ClauseT));
     clauses[0].T = (int*)malloc(2 * sizeof(int));
     clauses[0].t_len = 2;
     clauses[0].T[0] = 0;
