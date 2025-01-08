@@ -32,7 +32,7 @@ typedef struct {
 typedef struct {
     int* T;       // T 的位置数组
     int t_len;    // T 的长度
-    int (*f)(int*); // 函数 f 的指针
+    bool (*f)(bool*); // 函数 f 的指针
 } Clause;
 
 typedef struct {
@@ -50,7 +50,7 @@ void free_sk_tv(circuit*** sk_tv, int num_clauses);
 circuit*** build_sk_tv(int k, ClauseT* clauses, int num_clauses, circuit** msk, circuit** x);
 circuit** final_prf(int k, circuit*** sk_tv, int num_clauses, circuit** x);
 circuit** build_eval_circuit(int k, ClauseT* clauses, int num_clauses, circuit** msk, circuit** x);
-
+circuit*** build_constrain_circuit(Clause* clauses, int num_clauses, Pair* S, int* result_len, int k, circuit** msk);
 #ifdef __cplusplus
 }
 #endif

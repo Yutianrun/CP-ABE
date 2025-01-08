@@ -149,7 +149,7 @@ circuit** encode_Tx(int k, ClauseT clause, circuit** x) {
 
 circuit** encode_pair(int k, Pair pair, circuit* arbitray) {
     // 初始化一个 k 位全0的电路
-    circuit** encoded = (circuit**)malloc(sizeof(circuit*) * k* pair.t_len);
+    circuit** encoded = (circuit**)malloc(sizeof(circuit*) * k);
     if (encoded == NULL) {
         fprintf(stderr, "内存分配失败\n");
         exit(1);
@@ -273,29 +273,70 @@ Pair* compute_Sf_i(Clause clause, Pair* S, int S_len, int* result_len) {
     Pair* Sf_i = (Pair*)malloc(S_len * sizeof(Pair)); // 最多 S_len 个结果
     *result_len = 0;
 
-    for (int i = 0; i < S_len; i++) {
-        Pair current = S[i];
-        if (clause.f(current.v) == 1) { // 如果 f_i(v) = 1
-            Sf_i[*result_len] = current; // 添加到结果中
+    for (int i = 0; i < (1 << clause.t_len); i++) {
+        // printf("i = %d\n",i);
+        // Generate v array based on the current value of i
+        bool v[clause.t_len];
+        for (int bit = 0; bit < clause.t_len; bit++) {
+            v[bit] = (i & (1 << bit)) ? true : false;
+        }
+
+        // for(int i = 0;i<clause.t_len;i++){
+        //     printf("v[%d] = %d ",i,v[i]);
+        // }
+        // printf("\n");
+        // Check if f(v) == 1
+
+
+        if (clause.f(v)) {
+            // Create a new Pair with t and v
+            // printf("here test_right!\n");
+            Pair new_pair;
+            // Initialize new_pair.t based on clause.t
+            // Assuming Clause has a member 't' which is an array
+            new_pair.T = malloc(clause.t_len * sizeof(int));
+            new_pair.v = malloc(clause.t_len * sizeof(int));
+            new_pair.t_len = clause.t_len;
+            // printf("new_pair.t_len = %d\n", new_pair.t_len);
+            for (int t_idx = 0; t_idx < clause.t_len; t_idx++) {
+                new_pair.T[t_idx] = clause.T[t_idx];
+                new_pair.v[t_idx] = v[t_idx] ? 1 : 0;
+            }
+
+            // Add the new_pair to Sf_i
+            Sf_i[*result_len] = new_pair;
             (*result_len)++;
         }
     }
 
+    for(int i = 0; i < *result_len; i++) {
+        printf("Sf_i[%d] : ", i);
+        for (int j = 0; j < clause.t_len; j++) {
+            printf("T[%d] = %d, v[%d] = %d ", j, Sf_i[i].T[j], j, Sf_i[i].v[j]);
+
+        }
+        printf("\n");
+    }
     return Sf_i;
 }
 
 // 计算 S^f_rest
 Pair* compute_Sf_rest(Clause* clauses, int num_clauses, Pair* S, int S_len, int* result_len) {
     Pair* Sf_rest = (Pair*)malloc(S_len * sizeof(Pair)); // 最多 S_len 个结果
+    if (Sf_rest == NULL) {
+        fprintf(stderr, "Memory allocation failed for Sf_rest\n");
+        exit(1);
+    }
     *result_len = 0;
 
     for (int i = 0; i < S_len; i++) {
         Pair current = S[i];
         bool has_clause = false;
-
+        // printf("here_debug\n");
         // 检查是否有任何子句与当前 (T, v) 不一致
         for (int j = 0; j < num_clauses; j++) {
             if (clauses[j].f(current.v) == 1) {
+
                 has_clause = true;
                 break;
             }
@@ -313,28 +354,33 @@ Pair* compute_Sf_rest(Clause* clauses, int num_clauses, Pair* S, int S_len, int*
 
 // 计算 S^f
 Pair* compute_Sf(Clause* clauses, int num_clauses, Pair* S, int S_len, int* result_len) {
+
     int total_len = 0;
     Pair* Sf = (Pair*)malloc(S_len * sizeof(Pair)); // 最多 S_len 个结果
 
     // 计算 S^f_rest
-    int rest_len;
-    Pair* Sf_rest = compute_Sf_rest(clauses, num_clauses, S, S_len, &rest_len);
-    for (int i = 0; i < rest_len; i++) {
-        Sf[total_len++] = Sf_rest[i];
-    }
-    free(Sf_rest);
+    // int rest_len;
+
+    // Pair* Sf_rest = compute_Sf_rest(clauses, num_clauses, S, S_len, &rest_len);
+
+    // for (int i = 0; i < rest_len; i++) {
+    //     Sf[total_len++] = Sf_rest[i];
+    // }
+    // free(Sf_rest);
 
     // 计算每个 S^f_i
     for (int i = 0; i < num_clauses; i++) {
         int sf_i_len;
+
         Pair* Sf_i = compute_Sf_i(clauses[i], S, S_len, &sf_i_len);
         for (int j = 0; j < sf_i_len; j++) {
             Sf[total_len++] = Sf_i[j];
         }
-        free(Sf_i);
+        // free(Sf_i);
     }
 
     *result_len = total_len;
+    printf("result_len :%d\n", *result_len);
     return Sf;
 }
 
@@ -369,19 +415,35 @@ circuit*** compute_sk_f(Pair* Sf, int Sf_len, circuit** msk, int k) {
         // 构建 PRF 的输入：前k位为 encoded_Tv，后k位为 msk
         // 生成 PRF 电路： sk_{T,v} = PRF(msk, encoded_Tv)
         circuit** prf_output = initial_prp_circuit(k, encoded_Tv, msk);
+        // circuit** prf_output = encoded_Tv;
         if (prf_output == NULL) {
             fprintf(stderr, "PRF 构建失败用于 sk_f[%d]\n", i);
             exit(1);
         }
         sk_f[i] = prf_output; // 示例：仅存储第一个比特，实际应按需求调整
+        // sk_f[i] = msk; 
     }
     return sk_f;
 }
 
 // 综合构建电路的主函数
-circuit*** build_constrain_circuit(Clause* clauses, int num_clauses, Pair* S, int S_len, int k, circuit** msk) {
-    int result_len;
-    Pair* Sf = compute_Sf(clauses, num_clauses, S, S_len, &result_len);
+circuit*** build_constrain_circuit(Clause* clauses, int num_clauses, Pair* S, int* result_len, int k, circuit** msk) {
+
+    int S_len = (1 << k) * num_clauses; // 示例长度
+
+    // printf("debug here\n");
+    Pair* Sf = compute_Sf(clauses, num_clauses, S, S_len, result_len);
+    for(int i =0;i<*result_len;i++){
+        printf("Sf[%d] : ", i);
+        // printf("Sf t_len :%d \n", Sf[i].t_len);
+        for (int j = 0; j < Sf[i].t_len; j++) {
+            printf("T[%d] = %d, v[%d] = %d ", j, Sf[i].T[j], j, Sf[i].v[j]);
+
+        }
+        printf("\n");
+    }
+    // printf("Sf_len = %d\n", result_len);
+
     circuit*** sk_f = compute_sk_f(Sf, S_len, msk, k);
 
     // 释放 Sf
