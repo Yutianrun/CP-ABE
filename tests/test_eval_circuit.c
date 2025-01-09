@@ -23,25 +23,10 @@ int main() {
     int prf_k = 8; // 比特宽度，可以根据需要调整
 
     // Printing parameters
-    printf("Testing circuit with parameters\n");
+    printf("Testing eval circuit with parameters\n");
     print_params();
 
-    // Generating A
-    matrix* A = new_matrixes(PARAMS.K + 1, PARAMS.N, PARAMS.L);
-    CHRONO("Generated A in %fs\n", {
-        for (int i = 0; i < PARAMS.K + 1; i++) sample_Zq_uniform_matrix(A[i]);
-    });
-
-    // Testing G * G^-1(A) = A
-    matrix inv = new_matrix(PARAMS.L, PARAMS.L);
-    matrix res = new_matrix(PARAMS.N, PARAMS.L);
-    CHRONO("Checked G * G^-1(A) = A in %fs\n", {
-        inv_G(A[0], inv);
-        mul_matrix(G, inv, res);
-        assert(equals(A[0], res));
-    });
-    free_matrix(inv);
-    free_matrix(res);
+ 
 
     int num_clauses = 2;
     ClauseT* clauses = (ClauseT*)malloc(num_clauses * sizeof(ClauseT));
@@ -49,6 +34,7 @@ int main() {
     clauses[0].t_len = 2;
     clauses[0].T[0] = 0;
     clauses[0].T[1] = 2;
+
     clauses[1].t_len = 2;
     clauses[1].T = (int*)malloc(2 * sizeof(int));
     clauses[1].T[0] = 2;
@@ -65,9 +51,30 @@ int main() {
     }
     circuit** prf_output = build_eval_circuit(prf_k, clauses, num_clauses, msk, x);
 
-    printf("Circuit : ");
-    print_circuit(**prf_output);
-    printf("\n");
+    // printf("compute Circuit : %d\n", compute_f(*prf_output[0], 0));
+
+
+       // Generating A
+    matrix* A = new_matrixes(PARAMS.K + 1, PARAMS.N, PARAMS.L);
+    CHRONO("Generated A in %fs\n", {
+        for (int i = 0; i < PARAMS.K + 1; i++) sample_Zq_uniform_matrix(A[i]);
+    });
+
+    // Testing G * G^-1(A) = A
+    matrix inv = new_matrix(PARAMS.L, PARAMS.L);
+    matrix res = new_matrix(PARAMS.N, PARAMS.L);
+    CHRONO("Checked G * G^-1(A) = A in %fs\n", {
+        inv_G(A[0], inv);
+        mul_matrix(G, inv, res);
+        assert(equals(A[0], res));
+    });
+    free_matrix(inv);
+    free_matrix(res);
+
+
+    // printf("Circuit : ");
+    // print_circuit(**prf_output);
+    // printf("\n");
     int x_max = 1;
     for (int i = 0; i < prf_k/2; i++) x_max *= 2;
 
@@ -83,6 +90,8 @@ int main() {
         for (attribute i = 0; i < prf_k; i++) {
             sprintf(concatenated_output + strlen(concatenated_output), "%d", compute_f(*prf_output[i], input));
         }
+
+        // printf("computed over\n");
         char binary_input[2 * prf_k + 1];
         for (int j = 0; j < 2 * prf_k; j++) {
             binary_input[2 * prf_k - 1 - j] = (input & (1 << j)) ? '1' : '0';

@@ -12,13 +12,13 @@
 #include "sampling.h"
 #include "cprf.h"
 
-#define PRF_K 128
+// #define PRF_K 128
 
 
 int main() {
     init_params_default();
     // Printing parameters
-    printf("Testing circuit with parameters\n");
+    printf("Testing eval with parameters\n");
     print_params();
 
     // 使用辅助函数简化主电路

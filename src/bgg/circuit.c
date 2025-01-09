@@ -243,6 +243,7 @@ H_triplet compute_H_triplet(matrix* A, circuit f, attribute x) {
     inv_G(tr.A, inv);
     mul_matrix(tl.A, inv, tempA);
     sub_matrix(tempA, G, tempA);
+    free_matrix(t.A);
     t.A = copy_matrix(tempA);
 
     // Computing new x = 1 - xl * xr
@@ -251,6 +252,7 @@ H_triplet compute_H_triplet(matrix* A, circuit f, attribute x) {
     // Computing new H = Hl * G^-1(Ar) - xl * Hr
     mul_matrix(tl.H, inv, tempH);
     if (tl.x) sub_matrix(tempH, tr.H, tempH);
+    free_matrix(t.H);
     t.H = copy_matrix(tempH);
 
     // Free time !

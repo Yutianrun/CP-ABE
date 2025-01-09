@@ -4,7 +4,7 @@
 #include <stdlib.h>
 #include <stdbool.h>
 #include <assert.h>
-#define ROUND 4
+#define ROUND 2
 
 // 构建单个 PRF 电路的函数（已修正 n 的索引）
 // 修改后的构建单个 PRP 电路的函数，使用Feistel结构
