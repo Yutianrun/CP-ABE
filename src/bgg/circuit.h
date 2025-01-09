@@ -25,6 +25,8 @@ typedef struct btree {
     struct btree* left;
     struct btree* right;
     int n;
+    bool left_double_pointed;
+    bool right_double_pointed;
 } circuit;
 
 /*
