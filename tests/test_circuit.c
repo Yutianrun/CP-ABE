@@ -39,8 +39,10 @@ int main() {
     // Example hand-crafted circuit
     // f(x) = not(x1 | (x2 & x3)) = not(x1) & (not(x2) | not(x3))
     // 2nd version gives extremely similar results
-    circuit* f = circuit_not(circuit_or(
-        gen_leaf(1, true), circuit_and(gen_leaf(2, true), gen_leaf(3, true))));
+    // circuit* f = circuit_not(circuit_or(
+    //     gen_leaf(1, true), circuit_and(gen_leaf(2, true), gen_leaf(3, true))));
+
+    circuit* f = circuit_xor(gen_leaf(1,true), gen_leaf(2,true));
 
     printf("Circuit : ");
     print_circuit(*f);

@@ -45,21 +45,74 @@ circuit* new_circuit() {
     return f;
 }
 
+
+void circuit_to_string(circuit f, char* buffer, size_t size) {
+    if (!f.left && !f.right) {
+        snprintf(buffer + strlen(buffer), size - strlen(buffer), "%d", f.n);
+        return;
+    }
+    snprintf(buffer + strlen(buffer), size - strlen(buffer), "(");
+    circuit_to_string(*f.left, buffer, size);
+    snprintf(buffer + strlen(buffer), size - strlen(buffer), " ^ ");
+    circuit_to_string(*f.right, buffer, size);
+    snprintf(buffer + strlen(buffer), size - strlen(buffer), ")");
+}
+
+// void free_circuit(circuit* f) {
+//     assert((f->left && f->right) || (!f->left && !f->right));
+//     if (f->left && f->right && f->left != f->right) {
+//         // Check if the circuit represents an XOR operation
+//         if (f->left->left && f->left->right && f->right->left &&  f->right->right)
+//         {
+//             if(f->left->right->left &&f->left->right->right && f->right->left->left && f->right->left->right&& f->left->left == f->right->left->left && f->left->right->left == f->right->right)
+//             {
+//                 free_circuit(f->left->left);
+//                 free_circuit(f->right->right);
+//                 free(f->left->right);
+//                 free(f->right->left);
+//                 free(f->left);
+//                 free(f->right);
+//                 free(f);
+//                 return;
+//             }
+
+//         }
+//     }
+//     if (!f->left && !f->right) {
+//         free(f);
+//         return;
+//     }
+
+//     // Beware do not double free
+//     if (f->left == f->right)
+//         free_circuit(f->left);
+//     else {
+//         free_circuit(f->left);
+//         free_circuit(f->right);
+//     }
+
+
+//     free(f);
+// }
+
+
+
+
 void free_circuit(circuit* f) {
-    assert((f->left && f->right) || (!f->left && !f->right));
 
     if (!f->left && !f->right) {
         free(f);
         return;
     }
-
-    // Beware do not double free
-    if (f->left == f->right)
-        free_circuit(f->left);
-    else {
-        free_circuit(f->left);
-        free_circuit(f->right);
+    if(!f->left_double_pointed)
+    {
+            free_circuit(f->left);
     }
+    if(!f->right_double_pointed)
+    {
+            free_circuit(f->right);
+    }
+
     free(f);
 }
 

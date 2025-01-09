@@ -12,7 +12,7 @@
 #include "sampling.h"
 #include "cprf.h"
 
-#define PRF_K 128
+#define PRF_K 8
 
 
 int main() {
@@ -22,7 +22,7 @@ int main() {
     print_params();
 
     // 使用辅助函数简化主电路
-    int prf_k = 16; // 比特宽度，可以根据需要调整
+    int prf_k = PRF_K; // 比特宽度，可以根据需要调整
 
     // 构建 PRF 电路
     circuit** prf_output = build_prp_circuit(prf_k);
@@ -49,6 +49,10 @@ int main() {
         binary_input[2*prf_k] = '\0';
         printf("prf_output: f(%d)=%s (binary: %.*s %.*s)\n", input, concatenated_output, prf_k, binary_input, prf_k, binary_input + prf_k);
     }
-    
-
+    for(int i = 0; i < prf_k; i++) {
+        if (prf_output[i] != NULL) {
+            free_circuit(prf_output[i]);
+        }
+    }
+    free(prf_output);
 }

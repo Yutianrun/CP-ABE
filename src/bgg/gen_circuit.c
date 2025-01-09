@@ -5,6 +5,7 @@
 circuit* gen_leaf(int n, bool xn) {
     // n is still 1-indexed
     circuit* f = new_circuit();
+    f->left = f->right = NULL;
     f->n = n;
     if (xn) return f;
     return circuit_not(f);
@@ -14,6 +15,7 @@ circuit* circuit_not(circuit* f) {
     // NOT(A) = NAND(A, A)
     circuit* g = new_circuit();
     g->left = g->right = f;
+    g->right_double_pointed = true;
     return g;
 }
 
@@ -35,13 +37,34 @@ circuit* circuit_or(circuit* f, circuit* g) {
 
 // 辅助函数实现 XOR
 circuit* circuit_xor(circuit* a, circuit* b) {
-    return circuit_or(
-        circuit_and(a, circuit_not(b)),      // a AND NOT(b)
-        circuit_and(circuit_not(a), b)       // NOT(a) AND b
-    );
+    // XOR(A, B) = (A AND NOT(B)) OR (NOT(A) AND B)
+    // a AND NOT(b)
+    circuit* not_b = circuit_not(b);
+
+    circuit* a_and_not_b = new_circuit();
+    a_and_not_b->left = a;
+    a_and_not_b->right = not_b;
+
+    // NOT(a) AND b
+    circuit* not_a = circuit_not(a);
+    not_a->left_double_pointed = true;
+
+    circuit* not_a_and_b = new_circuit();
+    not_a_and_b->left = not_a;
+    not_a_and_b->right = b;
+    not_a_and_b->right_double_pointed = true;
+    
+
+    // OR(a AND NOT(b), NOT(a) AND b)
+    circuit* xor_result = new_circuit();
+    xor_result->left = a_and_not_b;
+    xor_result->right = not_a_and_b;
+
+
+    return xor_result;
 }
 
-
+//  ((((1 ^ (2 ^ 2)) ^ (1 ^ (2 ^ 2))) ^ ((1 ^ (2 ^ 2)) ^ (1 ^ (2 ^ 2)))) ^ ((((1 ^ 1) ^ 2) ^ ((1 ^ 1) ^ 2)) ^ (((1 ^ 1) ^ 2) ^ ((1 ^ 1) ^ 2))))
 circuit* gen_circuit(attribute x) {
     /*
     We denote Gi the logic gate associated to xi.

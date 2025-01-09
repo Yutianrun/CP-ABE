@@ -1,6 +1,8 @@
 {
     "version": "0.2",
     "configurations": [
+
+
         {
             "name": "Debug current file (without args)",
             "type": "cppdbg",
@@ -40,7 +42,46 @@
                 }
             ],
             "preLaunchTask": "Build current file"
-        }
+        },
+        {
+            "name": "Debug test_circuit",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/build/test_circuit",
+            "args": [],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}",
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ],
+            "preLaunchTask": "Build test_circuit"
+        },
+
+        {
+            "name": "Debug test_kbit_prf",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/build/test_kbitprf",
+            "args": [],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}",
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ],
+            "preLaunchTask": "Build test_kbitprf"
+        },
     ],
     "inputs": [
         {
@@ -49,4 +90,5 @@
             "description": "CLI arguments (required for certain files)"
         }
     ]
+    
 }

@@ -22,8 +22,6 @@ circuit** build_prp_circuit(int k) {
         circuit* left = gen_leaf(i + 1, false); // 左半部分 x[i]
         circuit* right = gen_leaf((i + 1) +k/2, false); // 右半部分 x[i+1]
         circuit* msk = gen_leaf(i + 1 + k, false); // 密钥 msk[i]
-
-        
         circuit* msk2 = gen_leaf(i + 1 + k + k/2, false); // 密钥 msk[i]
 
         // circuit* msk3 = gen_leaf(i + 1 + k, false); // 密钥 msk[i]
@@ -38,18 +36,23 @@ circuit** build_prp_circuit(int k) {
         circuit* R = right;
 
         for(int r = 0; r < rounds; r++) {
+            circuit* F = new_circuit();
+            circuit* new_L = R;
             // 轮函数
-            circuit* F;
             if (r % 2 == 0) {
             F = circuit_xor(R, msk); // 偶数轮使用 msk
+            F->left_double_pointed = true;
             } else {
             F = circuit_xor(R, msk2); // 奇数轮使用 msk2
+            F->left_double_pointed = true;
             }
-            // Feistel交换
-            circuit* new_L = R;
-            circuit* new_R = circuit_xor(L, F); // 新右 = L XOR F
+              
+            circuit* new_R = circuit_xor(L, F); // 新右 = L XOR 
+
+
             L = new_L;
             R = new_R;
+
         }
 
         // 合并左右部分作为输出
@@ -85,8 +88,10 @@ circuit** initial_prp_circuit(int k, circuit** x, circuit** msk) {
             circuit* F;
             if (r % 2 == 0) {
                 F = circuit_xor(R, msk1); // 偶数轮使用 msk1
+                F->left_double_pointed = true;
             } else {
                 F = circuit_xor(R, msk2); // 奇数轮使用 msk2
+                F->left_double_pointed = true;  
             }
             // Feistel交换
             circuit* new_L = R;
@@ -248,7 +253,6 @@ circuit** final_prf(int k, circuit*** sk_tv, int num_clauses, circuit** x) {
                 prf_outputs[j] = circuit_xor(prf_outputs[j], prf_output[j]);
             }
         }
-        return prf_output;
     }
 
     return prf_outputs;

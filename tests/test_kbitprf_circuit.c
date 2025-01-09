@@ -11,7 +11,7 @@
 #include "matrix.h"
 #include "sampling.h"
 #include "cprf.h"
-#define PRF_K 128
+#define PRF_K 8
 
 
 int main() {
@@ -59,8 +59,9 @@ int main() {
     for (int i = 0; i < prf_k; i++) x_max *= 2;
 
     uint32_t mask = rand() % (1 << prf_k); // 随机生成一个kbit的掩码
+    uint32_t input;
     for (attribute x = 0; x < x_max; x++) { // 前k位遍历0-x_max
-        uint32_t input = (x << prf_k) | mask; // 组合前k位和后k位
+        input = (x << prf_k) | mask; // 组合前k位和后k位
         char concatenated_output[256] = "";
         for (attribute i = 0; i < prf_k; i++) {
             sprintf(concatenated_output + strlen(concatenated_output), "%d", compute_f(*prf_output[i], input));
@@ -80,7 +81,6 @@ int main() {
                 printf("Norm H : %f\n", norm(H));
                 matrix R = copy_matrix(Af);
                 if (compute_f(*prf_output[i], input)) add_matrix(R, G, R);
-
                 for (int j = 1; j < PARAMS.K + 1; j++) {
                     matrix ti = copy_matrix(A[j]);
                     if (get_xn(input, j)) add_matrix(ti, G, ti);
@@ -100,6 +100,10 @@ int main() {
         }
     }
 
+    for(int i =0;i<prf_k;i++){
+        free_circuit(prf_output[i]);
+    }
+    free(prf_output);
 
     free_matrix(BIG);
     free_matrix(T);
