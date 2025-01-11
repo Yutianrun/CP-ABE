@@ -2,6 +2,7 @@
     "version": "0.2",
     "configurations": [
 
+
     
 
 
@@ -103,6 +104,27 @@
                 }
             ],
             "preLaunchTask": "Build test_eval_circuit"
+        },
+
+
+        {
+            "name": "Debug test_constrain_eval",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/build/test_constrain_eval",
+            "args": [],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}",
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ],
+            "preLaunchTask": "Build test_constrain_eval"
         },
     ],
     "inputs": [

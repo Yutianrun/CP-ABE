@@ -39,9 +39,12 @@ int main() {
 
     circuit** x = (circuit**)malloc((prf_k) * sizeof(circuit*));
     circuit** msk = (circuit**)malloc((prf_k) * sizeof(circuit*));
+
     for(int i = 0;i< prf_k; i++){
-        x[i] = gen_leaf(i+1, false);
-        msk[i] = gen_leaf(i+1+prf_k, false);
+        x[i] = gen_leaf(i+1, true);
+    }
+    for(int i = 0;i< prf_k; i++){
+        msk[i] = gen_leaf(i+1+prf_k, true);
     }
 
     circuit** eval = build_eval_circuit(prf_k, clauses, num_clauses, msk, x);
@@ -57,11 +60,10 @@ int main() {
     // printf("\n%d\n", compute_f(*eval[0], 300));
     uint32_t mask = rand() % (1 << prf_k); // 随机生成一个kbit的掩码
     for (attribute x = 0; x < x_max; x++) { // 前k位遍历0-x_max
-        uint32_t input = (x << prf_k) | mask; // 组合前k位和后k位
+        uint32_t input = (mask << prf_k) | x; // 组合前k位和后k位
         // uint8_t input = x;
         char concatenated_output[256] = "";
         for (attribute i = 0; i < prf_k; i++) {
-            // input = 0;
             sprintf(concatenated_output + strlen(concatenated_output), "%d", compute_f(*eval[i], input));
         }
         char binary_input[2*prf_k+1];
@@ -69,7 +71,7 @@ int main() {
             binary_input[2*prf_k - 1 - j] = (input & (1 << j)) ? '1' : '0';
         }
         binary_input[2*prf_k] = '\0';
-        printf("eval: f(%d)=%s (binary: %.*s %.*s)\n", input, concatenated_output, prf_k, binary_input, prf_k, binary_input + prf_k);
+        printf("prf_output: f(%d)=%s (binary: %.*s %.*s)\n", input, concatenated_output, prf_k, binary_input, prf_k, binary_input + prf_k);
     }
     
 

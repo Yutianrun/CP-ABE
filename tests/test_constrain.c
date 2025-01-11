@@ -65,11 +65,11 @@ int main() {
 
     circuit*** sk_f = build_constrain_circuit(clauses, num_clauses, S, &S_len, prf_k, msk);
 
-    // printf("S_len = %d\n", S_len);
+    printf("S_len = %d\n", S_len);
     
-    // printf("Circuit : ");
-    // print_circuit(*sk_f[0][3]);
-    // printf("\n");
+    printf("Circuit : ");
+    print_circuit(*sk_f[0][3]);
+    printf("\n");
 
     int x_max = 4;
     // for (int i = 0; i < prf_k/2; i++) x_max *= 2;
@@ -83,10 +83,13 @@ int main() {
         // uint32_t input = (x << prf_k) | mask; // 组合前k位和后k位
         uint32_t input = x;
         char concatenated_output[256] = "";
-        for (attribute i = 0; i < prf_k; i++) {
+        for (attribute i = 0; i < 2 * prf_k; i++) {
             // input = 0;
             // printf("u = %d, i = %d\n", u, i);
             sprintf(concatenated_output + strlen(concatenated_output), "%d", compute_f(*sk_f[u][i], input));
+            if (i == prf_k - 1) {
+            sprintf(concatenated_output + strlen(concatenated_output), " ");
+            }
             // sprintf(concatenated_output + strlen(concatenated_output), "%d", compute_f(*msk[i], input));
         }
         char binary_input[prf_k+1];

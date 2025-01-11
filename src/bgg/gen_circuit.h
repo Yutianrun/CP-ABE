@@ -10,6 +10,9 @@ circuit* circuit_and(circuit* f, circuit* g);
 
 circuit* circuit_or(circuit* f, circuit* g);
 circuit* circuit_xor(circuit* f, circuit* g);
+circuit* circuit_recurssive_and(circuit** f, int k);
+circuit* circuit_consecutive_and(circuit** f, int k);
+
 /*
 Returns a circuit such as f(x) = 0
 and forall y != x, f(y) = 1.

@@ -44,6 +44,15 @@ int main() {
 
     circuit* f = circuit_xor(gen_leaf(1,true), gen_leaf(2,true));
 
+    // circuit** list = (circuit**)malloc(4 * sizeof(circuit*));
+    // for (size_t i = 0; i < 4; i++)
+    // {
+    //     list[i] = gen_leaf(i+1, true);
+    // }
+    
+    // circuit* f = circuit_recurssive_and(list, 4);
+    // circuit* f = circuit_consecutive_and(list, 4);
+
     printf("Circuit : ");
     print_circuit(*f);
     printf("\n");
@@ -53,8 +62,8 @@ int main() {
     matrix T = new_matrix(PARAMS.N, PARAMS.L);
     matrix BIG = new_matrix(PARAMS.N, PARAMS.L * PARAMS.K);
 
-    int x_max = 1;
-    for (int i = 0; i < PARAMS.K; i++) x_max *= 2;
+    int x_max = 16;
+    // for (int i = 0; i < PARAMS.K; i++) x_max *= 2;
     char output[80];
 
     for (attribute x = 0; x < x_max; x++) {

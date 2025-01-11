@@ -51,6 +51,8 @@ circuit*** build_sk_tv(int k, ClauseT* clauses, int num_clauses, circuit** msk, 
 circuit** final_prf(int k, circuit*** sk_tv, int num_clauses, circuit** x);
 circuit** build_eval_circuit(int k, ClauseT* clauses, int num_clauses, circuit** msk, circuit** x);
 circuit*** build_constrain_circuit(Clause* clauses, int num_clauses, Pair* S, int* result_len, int k, circuit** msk);
+circuit ** build_constrain_eval_circuit(ClauseT* clauses, int num_clausesF, int num_clasuesT, int k, circuit*** sk_f, circuit** x);
+
 #ifdef __cplusplus
 }
 #endif

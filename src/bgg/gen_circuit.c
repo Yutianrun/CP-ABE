@@ -27,6 +27,33 @@ circuit* circuit_and(circuit* f, circuit* g) {
     return circuit_not(c);
 }
 
+
+circuit* circuit_recurssive_and(circuit** f, int k) {
+    // AND(A, B) = NOT(C) where C = NAND(A, B)
+
+    if (k==2)
+    {
+        return circuit_and(*f,*(f+1));/* code */  
+    }
+    
+    return circuit_and(circuit_recurssive_and(f,k/2), circuit_recurssive_and(f+k/2, k/2));
+}
+
+
+circuit* circuit_consecutive_and(circuit** f, int k) {
+    // AND(A, B) = NOT(C) where C = NAND(A, B)
+
+    if (k == 2) {
+        return circuit_and(*f, *(f + 1)); // 处理两个电路的 AND
+    }
+
+    // 递归处理 k - 1 个电路的 AND
+    circuit* partial_result = circuit_consecutive_and(f + 1, k - 1);
+    return circuit_and(*f, partial_result); // 处理当前电路与递归结果的 AND
+}
+
+
+
 circuit* circuit_or(circuit* f, circuit* g) {
     // OR(A, B) = NAND(NOT(A), NOT(B))
     circuit* o = new_circuit();
@@ -63,6 +90,13 @@ circuit* circuit_xor(circuit* a, circuit* b) {
 
     return xor_result;
 }
+// circuit* circuit_eq(circuit* a, circuit* b) {
+//     // XOR(a, b) using existing circuit_xor
+//     circuit* xor_ab = circuit_xor(a, b);
+//     // EQ(a, b) = NOT(XOR(a, b))
+//     circuit* eq = circuit_not(xor_ab);
+//     return eq;
+// }
 
 //  ((((1 ^ (2 ^ 2)) ^ (1 ^ (2 ^ 2))) ^ ((1 ^ (2 ^ 2)) ^ (1 ^ (2 ^ 2)))) ^ ((((1 ^ 1) ^ 2) ^ ((1 ^ 1) ^ 2)) ^ (((1 ^ 1) ^ 2) ^ ((1 ^ 1) ^ 2))))
 circuit* gen_circuit(attribute x) {

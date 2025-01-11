@@ -12,7 +12,7 @@
 #include "sampling.h"
 #include "cprf.h"
 
-#define PRF_K 8
+#define PRF_K 4
 
 
 int main() {
@@ -25,8 +25,15 @@ int main() {
     int prf_k = PRF_K; // 比特宽度，可以根据需要调整
 
     // 构建 PRF 电路
-    circuit** prf_output = build_prp_circuit(prf_k);
+    // circuit** prf_output = build_prp_circuit(prf_k);
+    circuit** x = (circuit**)malloc((prf_k) * sizeof(circuit*));
+    circuit** msk = (circuit**)malloc((prf_k) * sizeof(circuit*));
 
+    for(int i = 0;i< prf_k; i++){
+        x[i] = gen_leaf(i+1, true);
+        msk[i] = gen_leaf(i+1+prf_k, true);
+    }
+    circuit** prf_output = initial_prp_circuit(prf_k, x, msk);
     // printf("Circuit : ");
     // print_circuit(**prf_output);
     // printf("\n");
@@ -36,7 +43,7 @@ int main() {
 
     uint32_t mask = rand() % (1 << prf_k); // 随机生成一个kbit的掩码
     for (attribute x = 0; x < x_max; x++) { // 前k位遍历0-x_max
-        uint32_t input = (x << prf_k) | mask; // 组合前k位和后k位
+        uint32_t input = (mask << prf_k) | x; // 组合前k位和后k位
         // uint8_t input = x;
         char concatenated_output[256] = "";
         for (attribute i = 0; i < prf_k; i++) {

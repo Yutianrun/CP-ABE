@@ -11,7 +11,7 @@ OBJS_O = $(addsuffix .o,$(OBJS_RAW))
 OBJS = $(addprefix $(BUILD_DIR)/,$(OBJS_O))
 
 # list of executables binaries
-EXEC_RAW = sampling circuit bgg cp_bit gen_circuit is_short cp kbitprf_circuit  kbitprf eval eval_circuit constrain constrain_circuit
+EXEC_RAW = sampling circuit bgg cp_bit gen_circuit is_short cp kbitprf_circuit  kbitprf eval eval_circuit constrain constrain_circuit constrain_eval
 EXEC = $(addprefix test_,$(EXEC_RAW))
 
 # build cp as a library, including math lib
