@@ -12,7 +12,7 @@
 #include "sampling.h"
 #include "cprf.h"
 
-// #define PRF_K 128
+#define PRF_K 8
 
 
 int main() {
@@ -22,7 +22,7 @@ int main() {
     print_params();
 
     // 使用辅助函数简化主电路
-    int prf_k = 8; // 比特宽度，可以根据需要调整
+    int prf_k = PRF_K; // 比特宽度，可以根据需要调整
 
     int num_clauses = 2;
     ClauseT* clauses = (ClauseT*)malloc(num_clauses * sizeof(ClauseT));
@@ -36,17 +36,14 @@ int main() {
     clauses[1].T[1] = 3;
 
     // 构建 PRF 电路
-
+    // prf_output: f(26377)=01011100 (binary: 01100111 00001001)
     circuit** x = (circuit**)malloc((prf_k) * sizeof(circuit*));
     circuit** msk = (circuit**)malloc((prf_k) * sizeof(circuit*));
 
     for(int i = 0;i< prf_k; i++){
         x[i] = gen_leaf(i+1, true);
-    }
-    for(int i = 0;i< prf_k; i++){
         msk[i] = gen_leaf(i+1+prf_k, true);
     }
-
     circuit** eval = build_eval_circuit(prf_k, clauses, num_clauses, msk, x);
 
     // printf("Circuit : ");
@@ -56,9 +53,8 @@ int main() {
     int x_max = 1;
     for (int i = 0; i < prf_k/2; i++) x_max *= 2;
 
-
-    // printf("\n%d\n", compute_f(*eval[0], 300));
     uint32_t mask = rand() % (1 << prf_k); // 随机生成一个kbit的掩码
+    printf("mas:%d\n", mask);
     for (attribute x = 0; x < x_max; x++) { // 前k位遍历0-x_max
         uint32_t input = (mask << prf_k) | x; // 组合前k位和后k位
         // uint8_t input = x;
@@ -73,6 +69,12 @@ int main() {
         binary_input[2*prf_k] = '\0';
         printf("prf_output: f(%d)=%s (binary: %.*s %.*s)\n", input, concatenated_output, prf_k, binary_input, prf_k, binary_input + prf_k);
     }
+    // for(int i = 0; i < prf_k; i++) {
+    //     if (eval[i] != NULL) {
+    //         free_circuit(eval[i]);
+    //     }
+    // }
+    // free(eval);
     
 
 }

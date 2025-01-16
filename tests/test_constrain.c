@@ -71,14 +71,14 @@ int main() {
     print_circuit(*sk_f[0][3]);
     printf("\n");
 
-    int x_max = 4;
+    int x_max = 104;
     // for (int i = 0; i < prf_k/2; i++) x_max *= 2;
 
 
     // printf("\n%d\n", compute_f(*eval[0], 300));
     // uint32_t mask = rand() % (1 << prf_k); // 随机生成一个kbit的掩码
 
-    for (attribute x = 0; x < x_max; x++) {
+    for (attribute x = 103; x < x_max; x++) {
         for(int u = 0; u < S_len; u++) { // 前k位遍历0-x_max
         // uint32_t input = (x << prf_k) | mask; // 组合前k位和后k位
         uint32_t input = x;
