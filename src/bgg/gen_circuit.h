@@ -12,6 +12,7 @@ circuit* circuit_or(circuit* f, circuit* g);
 circuit* circuit_xor(circuit* f, circuit* g);
 circuit* circuit_recurssive_and(circuit** f, int k);
 circuit* circuit_consecutive_and(circuit** f, int k);
+circuit* circuit_consecutive_or(circuit** f, int k);
 
 /*
 Returns a circuit such as f(x) = 0

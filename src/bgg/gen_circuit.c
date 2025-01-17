@@ -52,6 +52,18 @@ circuit* circuit_consecutive_and(circuit** f, int k) {
     return circuit_and(*f, partial_result); // 处理当前电路与递归结果的 AND
 }
 
+circuit* circuit_consecutive_or(circuit** f, int k) {
+    // AND(A, B) = NOT(C) where C = NAND(A, B)
+
+    if (k == 2) {
+        return circuit_or(*f, *(f + 1)); // 处理两个电路的 AND
+    }
+
+    // 递归处理 k - 1 个电路的 AND
+    circuit* partial_result = circuit_consecutive_or(f + 1, k - 1);
+    return circuit_or(*f, partial_result); // 处理当前电路与递归结果的 AND
+}
+
 
 
 circuit* circuit_or(circuit* f, circuit* g) {

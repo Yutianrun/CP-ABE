@@ -471,12 +471,17 @@ circuit ** build_constrain_eval_circuit(ClauseT* clauses, int num_clausesF, int 
     for(int i = 0; i < num_clasuesT; i++) {
         // 编码 (T, v) 为8位
         circuit** encoded_Tv = encode_Tx(k, clauses[i], x);
+
+        // return encoded_Tv;
         circuit* match;
         circuit** match_matrix= malloc(num_clausesF * k* sizeof(circuit**));
+
+
         for(int j = 0; j < num_clausesF; j++) {
             circuit** bit_eq = malloc(k * sizeof(circuit*));
             // Compare encoded_Tv with sk_f[j]'s first k bits
             bool equal = true;
+            // return sk_f[1];
             for(int bit = 0; bit < k; bit++) {
                 bit_eq[bit] = circuit_not(circuit_xor(encoded_Tv[bit], sk_f[j][bit]));
                 if (bit_eq == NULL) {
@@ -484,37 +489,46 @@ circuit ** build_constrain_eval_circuit(ClauseT* clauses, int num_clausesF, int 
                     exit(1);
                 }
             }
+            printf("bit_eq\n");
+
             circuit* match = circuit_recurssive_and(bit_eq, k);
 
             for(int i =0;i<k;i++){
-                match_matrix[j*k+i] = bit_eq[i];
+                match_matrix[j*k+i] = match;
             }
+
         }
 
-        circuit*** key_list = malloc(num_clausesF * sizeof(circuit**));
+        circuit** key_list = malloc(num_clausesF* k  * sizeof(circuit**));
         for(int i=0;i<num_clausesF;i++){
-            circuit** key = malloc(k * sizeof(circuit*));
             for(int j=0;j<k;j++){
-                key[j]= circuit_and(match_matrix[i*k+j],sk_f[i][k+j]);
-            
-            key_list[i] = key;
-            }
+                key_list[i*k+j]= circuit_and(match_matrix[i*k+j],sk_f[i][k+j]);
+
+                // key_list[i*k+j]= circuit_and(match_matrix[i*k+j],(sk_f[1]+8)[j]);
+                
+            }           
         }
+
+        // return key_list+8;
 
         circuit** key_T = malloc(k * sizeof(circuit*));
   
         for(int i=0;i<k;i++){
             circuit** temp = malloc(num_clausesF * sizeof(circuit*));
             for(int j=0;j<num_clausesF;j++){
-                temp[j] = key_list[j][i];
+                temp[j] = key_list[j*k+ i];
             }
-            key_T[i]= circuit_consecutive_and(temp,num_clausesF);
+            key_T[i]= circuit_consecutive_or(temp,num_clausesF);
         }
 
+        // return key_T;
+
         circuit** prp_output = initial_prp_circuit(k, x, key_T);
+        return prp_output;
 
         if(i == 0){
             prp_results = prp_output;
+
         }
         else{
             for(int j = 0; j < k; j++) {

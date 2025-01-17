@@ -43,14 +43,15 @@ int main() {
 
     circuit** x = (circuit**)malloc((prf_k) * sizeof(circuit*));
     for(int i = 0;i< prf_k; i++){
-        x[i] = gen_leaf(i+1, false);
+        x[i] = gen_leaf(i+1, true);
     }
 
     circuit*** sk_f = malloc(num_clausesF * sizeof(circuit**));
     for (int i = 0; i <  num_clausesF; i++) {
         sk_f[i] = malloc(2* prf_k * sizeof(circuit*));
         for(int j = 0; j < 2* prf_k; j++) {
-            sk_f[i][j] = gen_leaf(prf_k*i+j+1, true);
+            sk_f[i][j] = gen_leaf(2*prf_k*i + j +1+prf_k, true);
+            // printf("index = %d\n", 2*prf_k*i+j+1+prf_k);
         }
     }
     int S_len ; // 示例长度
@@ -63,7 +64,7 @@ int main() {
     // print_circuit(*sk_f[0][3]);
     // printf("\n");
 
-    int x_max = 4;
+    int x_max = 1;
     // for (int i = 0; i < prf_k/2; i++) x_max *= 2;
 
 
@@ -74,18 +75,20 @@ int main() {
         // printf("x = %d\n", x);
         // 前k位遍历0-x_max
         // uint32_t input = (x << prf_k) | mask; // 组合前k位和后k位
-        uint32_t input = x;
+        uint64_t input = 60864841170228492ULL;
         char concatenated_output[256] = "";
         for (attribute i = 0; i <  prf_k; i++) {
             // input = 0;
             // printf("u = %d, i = %d\n", u, i);
             sprintf(concatenated_output + strlen(concatenated_output), "%d", compute_f(*eval[i], input));
+            // sprintf(concatenated_output + strlen(concatenated_output), "%d", compute_f(*sk_f[2][i+8], input));
+            // if (i == prf_k - 1) {
             if (i == prf_k - 1) {
             sprintf(concatenated_output + strlen(concatenated_output), " ");
             }
             // sprintf(concatenated_output + strlen(concatenated_output), "%d", compute_f(*msk[i], input));
         }
-        int total_bits = prf_k * 2 * num_clausesF;
+        int total_bits = prf_k * 2 * num_clausesF+ prf_k;
         int spaces = total_bits / 8;
         char binary_input[total_bits + spaces + 1];
         int space_interval = 8;

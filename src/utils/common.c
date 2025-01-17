@@ -10,15 +10,18 @@ cp_params PARAMS;
 
 static bool initialized = false;
 
-void init_params(int32_t N, uint32_t Q, int32_t K, int32_t P, real SIGMA) {
+void init_params(int32_t N, uint64_t Q, int32_t K, int32_t P, real SIGMA) {
     // We can initialize parameters only once
     assert(!initialized);
 
     // Checking parameters
-    assert(0 < N && N <= UINT32_MAX);
-    assert(0 < Q && Q <= UINT32_MAX);
-    assert(0 < K && K <= 32);
-    assert((uint32_t)ceil(log(Q) / log(2)) == K);
+    // assert(0 < N && N <= UINT32_MAX);
+    // assert(0 < Q && Q <= UINT32_MAX);
+    // assert(0 < K && K <= 32);
+    assert(0 < N && N <= UINT64_MAX);
+    assert(0 < Q && Q <= UINT64_MAX);
+    assert(0 < K && K <= 64);
+    assert((uint64_t)ceil(log2(Q)) == (uint64_t)K);
     assert(0 < P && P <= 30);
     assert(0 < SIGMA);
 
@@ -52,8 +55,8 @@ void init_params_default() {
     // uint32_t Q = 65536;
     // int32_t K = 64;
     // uint64_t Q = 18446744073709551616;
-    int32_t K = 32;
-    uint64_t Q = 4294967295;
+    int32_t K = 63;
+    uint64_t Q = 9223372036854775807ULL;
 
 
     int32_t P = 1;
