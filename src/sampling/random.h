@@ -6,7 +6,7 @@
 /*******************/
 
 uint32_t uniform_mod_n(uint32_t n);
-
+uint64_t uniform_mod_n_64(uint64_t n);
 /*
     Code from random_aesni.c
 */

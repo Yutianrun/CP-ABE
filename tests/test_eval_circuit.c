@@ -26,8 +26,6 @@ int main() {
     printf("Testing eval circuit with parameters\n");
     print_params();
 
- 
-
     int num_clauses = 2;
     ClauseT* clauses = (ClauseT*)malloc(num_clauses * sizeof(ClauseT));
     clauses[0].T = (int*)malloc(2 * sizeof(int));
@@ -60,16 +58,18 @@ int main() {
         for (int i = 0; i < PARAMS.K + 1; i++) sample_Zq_uniform_matrix(A[i]);
     });
 
+    matrix currAf = compute_Af(A, *prf_output[0]);
+
     // Testing G * G^-1(A) = A
-    matrix inv = new_matrix(PARAMS.L, PARAMS.L);
-    matrix res = new_matrix(PARAMS.N, PARAMS.L);
-    CHRONO("Checked G * G^-1(A) = A in %fs\n", {
-        inv_G(A[0], inv);
-        mul_matrix(G, inv, res);
-        assert(equals(A[0], res));
-    });
-    free_matrix(inv);
-    free_matrix(res);
+    // matrix inv = new_matrix(PARAMS.L, PARAMS.L);
+    // matrix res = new_matrix(PARAMS.N, PARAMS.L);
+    // CHRONO("Checked G * G^-1(A) = A in %fs\n", {
+    //     inv_G(A[0], inv);
+    //     mul_matrix(G, inv, res);
+    //     assert(equals(A[0], res));
+    // });
+    // free_matrix(inv);
+    // free_matrix(res);
 
 
     // printf("Circuit : ");

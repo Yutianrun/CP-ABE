@@ -12,7 +12,7 @@
 #include "sampling.h"
 #include "cprf.h"
 
-#define PRF_K 16
+#define PRF_K 8
 
 
 
@@ -24,7 +24,7 @@ int main() {
     print_params();
 
     // 使用辅助函数简化主电路
-    int prf_k = 8; // 比特宽度，可以根据需要调整
+    int prf_k = PRF_K; // 比特宽度，可以根据需要调整
 
     int num_clausesT = 2;
     int num_clausesF = 3;

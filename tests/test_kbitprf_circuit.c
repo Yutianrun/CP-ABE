@@ -27,15 +27,24 @@ int main() {
     // Generating A
     matrix* A = new_matrixes(PARAMS.K + 1, PARAMS.N, PARAMS.L);
     CHRONO("Generated A in %fs\n", {
-        for (int i = 0; i < PARAMS.K + 1; i++) sample_Zq_uniform_matrix(A[i]);
+        for (int i = 0; i < PARAMS.K + 1; i++) sample_Zq_uniform_matrix_64(A[i]);
     });
 
     // Testing G * G^-1(A) = A
     matrix inv = new_matrix(PARAMS.L, PARAMS.L);
+    // sample_Zq_uniform_matrix_64(inv);
+
     matrix res = new_matrix(PARAMS.N, PARAMS.L);
     CHRONO("Checked G * G^-1(A) = A in %fs\n", {
         inv_G(A[0], inv);
         mul_matrix(G, inv, res);
+        printf("A[0] : \n");
+        print_matrix(A[0]);
+
+        printf("inv : \n");
+        print_matrix(inv);
+        printf("G : \n");
+        print_matrix(G);
         assert(equals(A[0], res));
     });
     free_matrix(inv);
@@ -56,7 +65,7 @@ int main() {
     matrix BIG = new_matrix(PARAMS.N, PARAMS.L * PARAMS.K);
 
     int x_max = 1;
-    for (int i = 0; i < prf_k; i++) x_max *= 2;
+    for (int i = 0; i < prf_k/2; i++) x_max *= 2;
 
     uint32_t mask = rand() % (1 << prf_k); // 随机生成一个kbit的掩码
     uint32_t input;

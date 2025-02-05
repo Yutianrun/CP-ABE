@@ -524,7 +524,6 @@ circuit ** build_constrain_eval_circuit(ClauseT* clauses, int num_clausesF, int 
         // return key_T;
 
         circuit** prp_output = initial_prp_circuit(k, x, key_T);
-        return prp_output;
 
         if(i == 0){
             prp_results = prp_output;
@@ -535,9 +534,7 @@ circuit ** build_constrain_eval_circuit(ClauseT* clauses, int num_clausesF, int 
                 prp_results[j] = circuit_xor(prp_results[j], prp_output[j]);
             }
         }
-        prp_results = prp_output; // Assuming we take the first bit for XOR
-    }
-            
+    }   
     return prp_results;
 
 }

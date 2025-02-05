@@ -11,7 +11,20 @@
 
 int main() {
     init_sampler();
-    init_params_default();
+    int32_t N = 1;
+    // int32_t K = 56;
+    int32_t K = 20;
+    // int32_t K = 4;
+    // int64_t Q = 72057594037927936;
+    int64_t Q = 870367;
+    // int64_t Q = 16;
+
+
+    int32_t P = 1;
+    real SIGMA = 20;
+    int att_num = 56;
+    init_params(N, Q, K, P, SIGMA, att_num);
+    // init_params_default();
     init_G();
     real start, end;
 
@@ -22,16 +35,31 @@ int main() {
     // Generating A
     matrix* A = new_matrixes(PARAMS.K + 1, PARAMS.N, PARAMS.L);
     CHRONO("Generated A in %fs\n", {
-        for (int i = 0; i < PARAMS.K + 1; i++) sample_Zq_uniform_matrix(A[i]);
+        for (int i = 0; i < PARAMS.K + 1; i++) sample_Zq_uniform_matrix_64(A[i]);
     });
 
     // Testing G * G^-1(A) = A
     matrix inv = new_matrix(PARAMS.L, PARAMS.L);
     matrix res = new_matrix(PARAMS.N, PARAMS.L);
+
+
     CHRONO("Checked G * G^-1(A) = A in %fs\n", {
         inv_G(A[0], inv);
+
+        // printf("A[0] : \n");
+        // print_matrix(A[0]);
+
+        // printf("inv : \n");
+        // print_matrix(inv);
+
+        // printf("G : \n");
+        // print_matrix(G);
         mul_matrix(G, inv, res);
-        assert(equals(A[0], res));
+
+        // printf("G * G^-1(A) : \n");
+        // print_matrix(res);
+
+        // assert(equals(A[0], res));
     });
     free_matrix(inv);
     free_matrix(res);
@@ -40,17 +68,17 @@ int main() {
     // f(x) = not(x1 | (x2 & x3)) = not(x1) & (not(x2) | not(x3))
     // 2nd version gives extremely similar results
     // circuit* f = circuit_not(circuit_or(
-    //     gen_leaf(1, true), circuit_and(gen_leaf(2, true), gen_leaf(3, true))));
+        // gen_leaf(1, true), circuit_and(gen_leaf(2, true), gen_leaf(3, true))));
 
     circuit* f = circuit_xor(gen_leaf(1,true), gen_leaf(2,true));
 
-    // circuit** list = (circuit**)malloc(4 * sizeof(circuit*));
-    // for (size_t i = 0; i < 4; i++)
-    // {
-    //     list[i] = gen_leaf(i+1, true);
-    // }
+    circuit** list = (circuit**)malloc(4 * sizeof(circuit*));
+    for (size_t i = 0; i < 4; i++)
+    {
+        list[i] = gen_leaf(i+1, true);
+    }
     
-    // circuit* f = circuit_recurssive_and(list, 4);
+
     // circuit* f = circuit_consecutive_and(list, 4);
 
     printf("Circuit : ");

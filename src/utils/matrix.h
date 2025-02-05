@@ -36,7 +36,7 @@ matrix new_matrix(unsigned int rows, unsigned int columns);
 
 // Heap-allocate data filled with 0s and returns the corresponding signed_matrix
 signed_matrix new_signed_matrix(unsigned int rows, unsigned int columns);
-
+matrix* new_signed_matrixes(int n, unsigned int rows, unsigned int columns);
 // Returns a heap-allocated array of matrixes filled with 0s
 matrix* new_matrixes(int n, unsigned int rows, unsigned int columns);
 
@@ -70,10 +70,12 @@ void mul_matrix(matrix A, matrix B, matrix R);
 
 // R <- A * Tf where A in Zq^{d1 * d2} and Tf in Z^{d2 * d2}
 void mul_matrix_trap(matrix A, signed_matrix Tf, matrix R);
-
+void mul_matrix_transpose(matrix A, matrix B, matrix R);
+void mul_transpose_matrix(matrix A, matrix B, matrix R);
+void transpose_matrix(matrix A, matrix R);
 // R <- T * B where T in Z^{d1 * d2} and B in Zq^{d2 * d3}
 void mul_matrix_trap_left(signed_matrix T, matrix B, matrix R);
-
+void mul_matrix_signed(matrix A, signed_matrix B, signed_matrix R);
 // R <- x * A where x is a scalar
 void mul_matrix_scalar(scalar x, matrix A, matrix R);
 

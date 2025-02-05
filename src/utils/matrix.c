@@ -31,6 +31,12 @@ matrix* new_matrixes(int n, unsigned int rows, unsigned int columns) {
     return A;
 }
 
+matrix* new_signed_matrixes(int n, unsigned int rows, unsigned int columns) {
+    signed_matrix* A = calloc(n, sizeof(signed_matrix));
+    for (int i = 0; i < n; i++) A[i] = new_signed_matrix(rows, columns);
+    return A;
+}
+
 void free_matrix(matrix M) { free(M.data); }
 
 void free_signed_matrix(signed_matrix M) { free(M.data); }
@@ -124,10 +130,10 @@ void mul_matrix(matrix A, matrix B, matrix R) {
     // Computing the result
     for (int i = 0; i < A.rows; i++) {
         for (int j = 0; j < B.columns; j++) {
-            scalar r = 0;
+            int64_t r = 0;
             for (int k = 0; k < A.columns; k++) {
-                scalar a = matrix_element(A, i, k);
-                scalar b = matrix_element(B, k, j);
+                int64_t a = matrix_element(A, i, k);
+                int64_t b = matrix_element(B, k, j);
                 r = (r + a * b) % PARAMS.Q;
             }
             matrix_element(R, i, j) = r;
@@ -135,6 +141,53 @@ void mul_matrix(matrix A, matrix B, matrix R) {
     }
 }
 
+void mul_matrix_transpose(matrix A, matrix B, matrix R) {
+    // Check dimensions
+    assert(A.rows == R.rows);
+    assert(B.rows == R.columns);
+    assert(A.columns == B.columns);
+    // Computing the result
+    for (int i = 0; i < A.rows; i++) {
+        for (int j = 0; j < B.rows; j++) {
+            scalar r = 0;
+            for (int k = 0; k < A.columns; k++) {
+                scalar a = matrix_element(A, i, k);
+                scalar b = matrix_element(B, j, k);  // Note: B is transposed
+                r = (r + a * b) % PARAMS.Q;
+            }
+            matrix_element(R, i, j) = r;
+        }
+    }
+}
+void transpose_matrix(matrix A, matrix R) {
+    // R must be A.columns x A.rows
+    assert(R.rows == A.columns);
+    assert(R.columns == A.rows);
+    for (unsigned int i = 0; i < A.rows; i++) {
+        for (unsigned int j = 0; j < A.columns; j++) {
+            matrix_element(R, j, i) = matrix_element(A, i, j);
+        }
+    }
+}
+// If A is m x n, then A^T is n x m; to multiply A^T by B (of dimension m x p), R must be n x p.
+void mul_transpose_matrix(matrix A, matrix B, matrix R) {
+    // Check dimensions: A.rows == B.rows, R.rows == A.columns, and R.columns == B.columns.
+    assert(A.rows == B.rows);
+    assert(R.rows == A.columns);
+    assert(R.columns == B.columns);
+
+    for (unsigned int i = 0; i < A.columns; i++) {
+        for (unsigned int j = 0; j < B.columns; j++) {
+            int64_t r = 0;
+            for (unsigned int k = 0; k < A.rows; k++) {
+                int64_t a = matrix_element(A, k, i);
+                int64_t b = matrix_element(B, k, j);
+                r = (r + a * b) % PARAMS.Q;
+            }
+            matrix_element(R, i, j) = r;
+        }
+    }
+}
 // R <- A * Tf where A in Zq^{d1 * d2} and Tf in Z^{d2 * d2}
 void mul_matrix_trap(matrix A, signed_matrix Tf, matrix R) {
     // Check dimensions
@@ -149,10 +202,35 @@ void mul_matrix_trap(matrix A, signed_matrix Tf, matrix R) {
                 signed_scalar a = (signed_scalar)matrix_element(A, i, k);
                 signed_scalar b = matrix_element(Tf, k, j);
                 r = (r + a * b) % PARAMS.Q;
+                // printf("params q: %d\n", PARAMS.Q);
+                // r = (r + a * b) % 17;
+                // printf("inside r: %ld\n", r);
                 // To be sure r >= 0
                 if (r < 0) r += PARAMS.Q;
             }
+            // printf("inside r: %d\n", r);
             matrix_element(R, i, j) = (scalar)r;
+        }
+    }
+}
+
+void mul_matrix_signed(matrix A, signed_matrix B, signed_matrix R) {
+    // Check dimensions
+    assert(A.rows == R.rows);
+    assert(A.columns == B.rows);
+    assert(B.columns == R.columns);
+    // Computing the result
+    for (int i = 0; i < A.rows; i++) {
+        for (int j = 0; j < B.columns; j++) {
+            signed_scalar r = 0;
+            for (int k = 0; k < A.columns; k++) {
+                signed_scalar a = (signed_scalar)matrix_element(A, i, k);
+                signed_scalar b = matrix_element(B, k, j);
+                r = (r + a * b) % PARAMS.Q;
+                // To be sure r >= 0
+                // if (r < 0) r += PARAMS.Q;
+            }
+            matrix_element(R, i, j) = r;
         }
     }
 }

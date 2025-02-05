@@ -10,7 +10,7 @@ cp_params PARAMS;
 
 static bool initialized = false;
 
-void init_params(int32_t N, uint64_t Q, int32_t K, int32_t P, real SIGMA) {
+void init_params(int32_t N, int64_t Q, int32_t K, int32_t P, real SIGMA, int32_t att_num) {
     // We can initialize parameters only once
     assert(!initialized);
 
@@ -19,7 +19,7 @@ void init_params(int32_t N, uint64_t Q, int32_t K, int32_t P, real SIGMA) {
     // assert(0 < Q && Q <= UINT32_MAX);
     // assert(0 < K && K <= 32);
     assert(0 < N && N <= UINT64_MAX);
-    assert(0 < Q && Q <= UINT64_MAX);
+    assert(0 < Q && Q <= INT64_MAX);
     assert(0 < K && K <= 64);
     assert((uint64_t)ceil(log2(Q)) == (uint64_t)K);
     assert(0 < P && P <= 30);
@@ -31,10 +31,12 @@ void init_params(int32_t N, uint64_t Q, int32_t K, int32_t P, real SIGMA) {
     PARAMS.K = K;
     PARAMS.L = N * K;
     PARAMS.P = P;
-    PARAMS.M = P + 2;
+    PARAMS.M = N * K;
     PARAMS.SIGMA = SIGMA;
+    PARAMS.MBAR = PARAMS.L / 8;
     // Empirical formula from is_short tests
     real SHORT_THRESHOLD = (real)N * (Q / 2) * pow(P, 1.45) * pow(SIGMA, 2);
+    PARAMS.Att_num = att_num;
     // Arbitrary factor to compensate reality so it works better in practice
     // ie for a wider range of parameters
     SHORT_THRESHOLD /= 10;
@@ -45,7 +47,10 @@ void init_params(int32_t N, uint64_t Q, int32_t K, int32_t P, real SIGMA) {
 }
 
 void init_params_default() {
-    int32_t N = 1;
+    // int32_t N = 1;
+    // int32_t N = 56;
+
+    // real SIGMA = 20;
     // uint32_t Q = 1073707009;
     // int32_t K = 30;
     // int32_t K = 10;
@@ -55,19 +60,25 @@ void init_params_default() {
     // uint32_t Q = 65536;
     // int32_t K = 64;
     // uint64_t Q = 18446744073709551616;
-    int32_t K = 63;
-    uint64_t Q = 9223372036854775807ULL;
-
+    int32_t N = 1;
+    int64_t Q = 870367;
+    int32_t K = 20;
+    // int32_t K = 56;
+    // int32_t K = 4;
+    // int64_t Q = 13;
+    // int64_t Q = 72057594037927936;
 
     int32_t P = 1;
-    real SIGMA = 7.00;
-    init_params(N, Q, K, P, SIGMA);
+    real SIGMA = 20;
+    // int32_t att_num = 56;
+     int32_t att_num = 56;
+    init_params(N, Q, K, P, SIGMA, att_num);
 }
 
 void print_params() {
     printf("Printing parameters...\n");
     printf("\tN = %d\n", PARAMS.N);
-    printf("\tQ = %u\n", PARAMS.Q);
+    printf("\tQ = %ld\n", PARAMS.Q);
     printf("\tK = %d\n", PARAMS.K);
     printf("\tL = %d\n", PARAMS.L);
     printf("\tP = %d\n", PARAMS.P);

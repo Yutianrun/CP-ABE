@@ -10,7 +10,7 @@
 /***************/
 /* Computing G */
 /***************/
-
+#define EPSILON 1e-10
 matrix G;
 
 void init_G() {
@@ -18,7 +18,7 @@ void init_G() {
     G = new_matrix(PARAMS.N, PARAMS.L);
     for (int i = 0; i < PARAMS.N; i++)
         for (int k = 0; k < PARAMS.K; k++)
-            matrix_element(G, i, i * PARAMS.K + k) = (1 << k) % PARAMS.Q;
+            matrix_element(G, i, i * PARAMS.K + k) = ((int64_t)1 << k) % PARAMS.Q;
 }
 
 // R <- G^-1(A)
@@ -33,6 +33,105 @@ void inv_G(matrix A, matrix R) {
     }
 }
 
+bool is_invertible(matrix A) {
+    if (A.rows != A.columns) {
+        return false;
+    }
+    
+    unsigned int n = A.rows;
+    matrix L = new_matrix(n, n);
+    
+    // 复制原矩阵用于LU分解
+    matrix U = copy_matrix(A);
+    
+    // LU分解
+    for(unsigned int i = 0; i < n; i++) {
+        // 对角线元素设为1
+        matrix_element(L, i, i) = 1;
+        
+        for(unsigned int j = i + 1; j < n; j++) {
+            if(fabs(matrix_element(U, i, i)) < EPSILON) {
+                free_matrix(L);
+                free_matrix(U);
+                return false;
+            }
+            
+            scalar factor = matrix_element(U, j, i) / matrix_element(U, i, i);
+            matrix_element(L, j, i) = factor;
+            
+            for(unsigned int k = i; k < n; k++) {
+                matrix_element(U, j, k) -= factor * matrix_element(U, i, k);
+            }
+        }
+    }
+    
+    // 计算行列式(对角线元素乘积)
+    scalar det = 1;
+    for(unsigned int i = 0; i < n; i++) {
+        det *= matrix_element(U, i, i);
+    }
+    
+    free_matrix(L);
+    free_matrix(U);
+    
+    return fabs(det) >= EPSILON;
+}   
+
+
+matrix matrix_inverse(matrix A) {
+    if (A.rows != A.columns) {
+        fprintf(stderr, "Error: Matrix must be square for inversion\n");
+        return new_matrix(0, 0);
+    }
+    
+    unsigned int n = A.rows;
+    matrix augmented = new_matrix(n, 2*n);
+    
+    // 填充增广矩阵
+    for(unsigned int i = 0; i < n; i++) {
+        for(unsigned int j = 0; j < n; j++) {
+            matrix_element(augmented, i, j) = matrix_element(A, i, j);
+            matrix_element(augmented, i, j+n) = (i == j) ? 1 : 0;
+        }
+    }
+    
+    // 高斯-约旦消元
+    for(unsigned int i = 0; i < n; i++) {
+        // 查找主元
+        scalar pivot = matrix_element(augmented, i, i);
+        if(fabs(pivot) < EPSILON) {
+            fprintf(stderr, "Error: Matrix is singular\n");
+            free_matrix(augmented);
+            return new_matrix(0, 0);
+        }
+        
+        // 归一化当前行
+        for(unsigned int j = 0; j < 2*n; j++) {
+            matrix_element(augmented, i, j) /= pivot;
+        }
+        
+        // 消元
+        for(unsigned int k = 0; k < n; k++) {
+            if(k != i) {
+                scalar factor = matrix_element(augmented, k, i);
+                for(unsigned int j = 0; j < 2*n; j++) {
+                    matrix_element(augmented, k, j) -= factor * matrix_element(augmented, i, j);
+                }
+            }
+        }
+    }
+    
+    // 提取逆矩阵
+    matrix inverse = new_matrix(n, n);
+    for(unsigned int i = 0; i < n; i++) {
+        for(unsigned int j = 0; j < n; j++) {
+            matrix_element(inverse, i, j) = matrix_element(augmented, i, j+n);
+        }
+    }
+    
+    free_matrix(augmented);
+    return inverse;
+}
 /*****************/
 /* Circuit utils */
 /*****************/
@@ -269,6 +368,108 @@ matrix compute_H(matrix* A, circuit f, attribute x) {
     H_triplet t = compute_H_triplet(A, f, x);
     matrix H = copy_matrix(t.H);
     free_H_triplet(&t);
+    return H;
+}
+// 计算模Q下的逆元
+scalar mod_inverse(scalar a, scalar m) {
+    scalar m0 = m;
+    scalar y = 0, x = 1;
+    if (m == 1) return 0;
+    while (a > 1) {
+        scalar q = a / m;
+        scalar t = m;
+        m = a % m;
+        a = t;
+        t = y;
+        y = x - q * y;
+        x = t;
+    }
+    if (x < 0) x += m0;
+    return x;
+}
+
+matrix matrix_inverse_mod_q(matrix* A) {
+    assert(A->rows == A->columns);
+    int n = A->rows;
+    
+    // 创建增广矩阵 [A|I]
+    matrix aug = new_matrix(n, 2 * n);
+    for(int i = 0; i < n; i++) {
+        for(int j = 0; j < n; j++) {
+            matrix_element(aug, i, j) = matrix_element(*A, i, j);
+        }
+        matrix_element(aug, i, i + n) = 1;
+    }
+    
+    // 高斯-约旦消元
+    for(int i = 0; i < n; i++) {
+        // 找主元
+        scalar pivot = matrix_element(aug, i, i);
+        scalar pivot_inv = mod_inverse(pivot, PARAMS.Q);
+        
+        // 将主对角线元素化为1
+        for(int j = 0; j < 2 * n; j++) {
+            matrix_element(aug, i, j) = 
+                (matrix_element(aug, i, j) * pivot_inv) % PARAMS.Q;
+        }
+        
+        // 将其他行的这一列化为0
+        for(int k = 0; k < n; k++) {
+            if(k != i) {
+                scalar factor = matrix_element(aug, k, i);
+                for(int j = 0; j < 2 * n; j++) {
+                    scalar temp = (matrix_element(aug, i, j) * factor) % PARAMS.Q;
+                    matrix_element(aug, k, j) = 
+                        (PARAMS.Q + matrix_element(aug, k, j) - temp) % PARAMS.Q;
+                }
+            }
+        }
+    }
+    
+    // 提取右半部分作为逆矩阵
+    matrix inv = new_matrix(n, n);
+    for(int i = 0; i < n; i++) {
+        for(int j = 0; j < n; j++) {
+            matrix_element(inv, i, j) = matrix_element(aug, i, j + n);
+        }
+    }
+    
+    free_matrix(aug);
+    return inv;
+}
+
+matrix compute_H_from_A_Af(matrix* A, matrix* Af) {
+    // A: 1×400, Af: 1×20, 目标 H: 400×20
+    // 1. 计算 A^T (400×1)
+    matrix AT = new_matrix(A->columns, A->rows);
+    for (int i = 0; i < A->columns; i++) {
+        for (int j = 0; j < A->rows; j++) {
+            matrix_element(AT, i, j) = matrix_element(*A, j, i);
+        }
+    }
+    
+    // 2. 计算 ATA = A^T × A (400×400)
+    matrix ATA = new_matrix(AT.rows, A->columns);
+    mul_matrix(AT, *A, ATA);
+    
+    // 3. 计算 (ATA)^(-1) mod Q (400×400)
+    matrix ATA_inv = matrix_inverse_mod_q(&ATA);
+    
+    // 4. 计算 temp = ATA_inv × A^T (400×1)
+    matrix temp = new_matrix(ATA_inv.rows, AT.columns);
+    mul_matrix(ATA_inv, AT, temp);
+    
+    // 5. 计算 H = temp × Af
+    // temp: (400×1) 与 Af: (1×20) 得到 H: (400×20)
+    matrix H = new_matrix(temp.rows, Af->columns);
+    mul_matrix(temp, *Af, H);
+    
+    // 清理临时矩阵
+    free_matrix(AT);
+    free_matrix(ATA);
+    free_matrix(ATA_inv);
+    free_matrix(temp);
+    
     return H;
 }
 

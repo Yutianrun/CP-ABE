@@ -34,7 +34,7 @@ void free_cp_cipher(cp_cipher cipher) {
 /********************/
 
 void init_cp(scalar N, scalar Q, scalar K, scalar P, real SIGMA) {
-    init_params(N, Q, K, P, SIGMA);
+    init_params(N, Q, K, P, SIGMA, K);
     init_sampler();
     init_G();
 }

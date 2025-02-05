@@ -33,6 +33,25 @@ uint32_t uniform_mod_n(uint32_t n) {
         }
     }
 }
+/*
+Returns a 64-bit integer sampled from the uniform distribution over [0, n - 1]
+using the uniform distribution over [0, 2^64 - 1] provided by random_bytes
+*/
+uint64_t uniform_mod_n_64(uint64_t n) {
+    uint64_t scaling = (UINT64_MAX) / n;
+    uint64_t past = n * scaling;
+    uint64_t r_data[4];
+
+    while (true) {
+        random_bytes((uint8_t *)r_data);
+        // random_bytes((uint8_t *)(r_data + 1));
+
+        for (int i = 0; i < 4; ++i) {
+            uint64_t r = r_data[i];
+            if (r < past) return (r / scaling );
+        }
+    }
+}
 
 #define AES_128_key_exp(k, rcon) \
     aes_128_key_expansion(k, _mm_aeskeygenassist_si128(k, rcon))

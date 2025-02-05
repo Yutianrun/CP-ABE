@@ -12,7 +12,7 @@
 #include "sampling.h"
 #include "cprf.h"
 
-#define PRF_K 16
+#define PRF_K 8
 
 
 bool simple_function(bool* input) {
@@ -33,7 +33,7 @@ int main() {
     print_params();
 
     // 使用辅助函数简化主电路
-    int prf_k = 8; // 比特宽度，可以根据需要调整
+    int prf_k = PRF_K; // 比特宽度，可以根据需要调整
 
     int num_clauses = 2;
     Clause* clauses = (Clause*)malloc(num_clauses * sizeof(Clause));

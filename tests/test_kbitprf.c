@@ -39,12 +39,12 @@ int main() {
     // printf("\n");
     // PARAMS.K = k;
     int x_max = 1;
-    for (int i = 0; i < prf_k; i++) x_max *= 2;
+    for (int i = 0; i < prf_k/2; i++) x_max *= 2;
 
-    // uint32_t mask = rand() % (1 << prf_k); // 随机生成一个kbit的掩码
-    uint32_t mask = 216;
+    uint32_t mask = rand() % (1 << prf_k); // 随机生成一个kbit的掩码
+    // uint32_t mask = 216;
     // uint32_t mask = 64;
-    for (attribute x = 12; x < 13; x++) { // 前k位遍历0-x_max
+    for (attribute x = 0; x < x_max; x++) { // 前k位遍历0-x_max
         uint32_t input = (mask << prf_k) | x; // 组合前k位和后k位
         // uint8_t input = x;
         char concatenated_output[256] = "";

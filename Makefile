@@ -1,17 +1,17 @@
 CC = gcc
 CFLAGS = -g -Wall -O3
-INCLUDES = -Isrc -Isrc/bgg -Isrc/sampling -Isrc/utils -Isrc -Isrc/cprf
+INCLUDES = -Isrc -Isrc/bgg -Isrc/sampling -Isrc/utils -Isrc -Isrc/cprf -Isrc/cprf-abe
 
 SRC_DIR = src
 BUILD_DIR = build
 SRC_TEST = tests
 
-OBJS_RAW = common matrix attribute random sampling circuit gen_circuit bgg cp cprf
+OBJS_RAW = common matrix attribute random sampling circuit gen_circuit bgg cp cprf abe
 OBJS_O = $(addsuffix .o,$(OBJS_RAW))
 OBJS = $(addprefix $(BUILD_DIR)/,$(OBJS_O))
 
 # list of executables binaries
-EXEC_RAW = sampling circuit bgg cp_bit gen_circuit is_short cp kbitprf_circuit  kbitprf eval eval_circuit constrain constrain_circuit constrain_eval
+EXEC_RAW = sampling circuit bgg cp_bit gen_circuit is_short cp kbitprf_circuit  kbitprf eval eval_circuit constrain constrain_circuit constrain_eval  sampleG trapgen computeH abe
 EXEC = $(addprefix test_,$(EXEC_RAW))
 
 # build cp as a library, including math lib
@@ -40,6 +40,9 @@ $(BUILD_DIR)/%.o: $(SRC_DIR)/bgg/%.c
 	$(CC) $(CFLAGS) $(INCLUDES) -fPIC -c -o $@ $^
 	
 $(BUILD_DIR)/%.o: $(SRC_DIR)/cprf/%.c
+	$(CC) $(CFLAGS) $(INCLUDES) -fPIC -c -o $@ $^
+
+$(BUILD_DIR)/%.o: $(SRC_DIR)/cprf-abe/%.c
 	$(CC) $(CFLAGS) $(INCLUDES) -fPIC -c -o $@ $^
 
 # -maes required for random.c using aes intrinsics
