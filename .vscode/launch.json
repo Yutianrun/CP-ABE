@@ -4,6 +4,8 @@
 
 
 
+
+
     
 
 
@@ -68,6 +70,25 @@
         },
 
         {
+            "name": "Debug test_eval_fixed_msk",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/build/test_eval_fixed_msk",
+            "args": [],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}",
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ],
+            // "preLaunchTask": "Build test_abe"
+        },
+        {
             "name": "Debug test_abe",
             "type": "cppdbg",
             "request": "launch",
@@ -86,12 +107,50 @@
             ],
             // "preLaunchTask": "Build test_abe"
         },
-
+        {
+            "name": "Debug test_constrain_eval_circuit",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/build/test_constrain_eval_circuit",
+            "args": [],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}",
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ],
+            // "preLaunchTask": "Build test_abe"
+        },
         {
             "name": "Debug sampleG",
             "type": "cppdbg",
             "request": "launch",
             "program": "${workspaceFolder}/build/test_sampleG",
+            "args": [],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}",
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ],
+            // "preLaunchTask": "Build test_abe"
+        },
+
+        {
+            "name": "Debug test_constrain_eval_fixed_x",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/build/test_constrain_eval_fixed_x",
             "args": [],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",

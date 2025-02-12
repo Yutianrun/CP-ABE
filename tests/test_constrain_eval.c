@@ -12,7 +12,7 @@
 #include "sampling.h"
 #include "cprf.h"
 
-#define PRF_K 8
+
 
 
 
@@ -75,7 +75,8 @@ int main() {
         // printf("x = %d\n", x);
         // 前k位遍历0-x_max
         // uint32_t input = (x << prf_k) | mask; // 组合前k位和后k位
-        uint64_t input = 60864841170228492ULL;
+        // uint64_t input = 60864841170228492ULL;
+        uint64_t input =36939201860670732ULL;
         char concatenated_output[256] = "";
         for (attribute i = 0; i <  prf_k; i++) {
             // input = 0;

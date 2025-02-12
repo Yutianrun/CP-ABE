@@ -78,14 +78,15 @@ int main() {
     int x_max = 1;
     for (int i = 0; i < prf_k/2; i++) x_max *= 2;
 
+    x_max = 13;
     char output[80];
     matrix T = new_matrix(PARAMS.N, PARAMS.L);
     matrix BIG = new_matrix(PARAMS.N, PARAMS.L * PARAMS.K);
 
 
     uint32_t mask = rand() % (1 << prf_k); // 随机生成一个kbit的掩码
-    for (attribute x = 0; x < x_max; x++) { // 前k位遍历0-x_max
-        uint32_t input = (x << prf_k) | mask; // 组合前k位和后k位
+    for (attribute x = 12; x < x_max; x++) { // 前k位遍历0-x_max
+        uint32_t input = (mask << prf_k) | x; // 组合前k位和后k位
         char concatenated_output[256] = "";
         for (attribute i = 0; i < prf_k; i++) {
             sprintf(concatenated_output + strlen(concatenated_output), "%d", compute_f(*prf_output[i], input));
@@ -107,6 +108,7 @@ int main() {
                 printf("Norm H : %f\n", norm(H));
                 matrix R = copy_matrix(Af);
                 if (compute_f(*prf_output[i], input)) add_matrix(R, G, R);
+                // if (compute_f(*prf_output[i], input)) sub_matrix(R, G, R);
 
                 for (int j = 1; j < PARAMS.K + 1; j++) {
                     matrix ti = copy_matrix(A[j]);

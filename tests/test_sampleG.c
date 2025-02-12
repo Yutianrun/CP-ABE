@@ -174,7 +174,7 @@ int main() {
     init_params(n, q, k, p , s, 1);
     PARAMS.MBAR=1;
     init_sampler();
-    // test_SampleG();
+    test_SampleG();
     test_SampleD();
     return 0;
 }

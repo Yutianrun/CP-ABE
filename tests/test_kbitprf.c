@@ -12,7 +12,7 @@
 #include "sampling.h"
 #include "cprf.h"
 
-#define PRF_K 8
+
 
 
 int main() {

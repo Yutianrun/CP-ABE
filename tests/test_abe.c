@@ -4,12 +4,17 @@
 #include <stdio.h>
 #include "abe.h"
 #include "cprf.h"
-#define PRF_K 8
 
 // Test ABE_Setup
 ABE_setup_result  test_ABE_Setup() {
     uint64_t test_msk = 103;
+    real start, end;
+    // Separator line indicating the start of the setup process
+    printf("------Start ABE_Setup process------\n");
     ABE_setup_result res = ABE_Setup(test_msk);
+    CHRONO("Generated A in %fs\n", {
+        for (int i = 0; i < PARAMS.K + 1; i++) sample_Zq_uniform_matrix(res.pp.A[i]);
+    });
         
     // Check public parameters
     assert(res.pp.B.data != NULL);
@@ -19,17 +24,74 @@ ABE_setup_result  test_ABE_Setup() {
     // Check master secret key
     assert(res.msk_out.B_tau.data != NULL);
     assert(res.msk_out.sigma == test_msk);
-    
     printf("ABE_Setup: sigma = %llu\n", (unsigned long long)res.msk_out.sigma);
-
-    // Free allocated resources
-    // free_matrix(res.pp.B);
-    // free_matrixes(res.pp.A, PARAMS.K + 1);
-    // free_matrix(res.pp.v);
-    // free_matrix(res.msk_out.B_tau);
-
-
+    printf("binary of sigma = ");
+    {
+        int bit_count = sizeof(res.msk_out.sigma) * 8;
+        int printed = 0;
+        for (int i = bit_count - 1; i >= 0; i--) {
+            printf("%d", (int)((res.msk_out.sigma >> i) & 1));
+            printed++;
+            if (printed % 8 == 0 && i > 0)
+                printf(" ");
+        }
+        printf("\n");
+    }
+    printf("dimension of B: %d x %d\n", res.pp.B.rows, res.pp.B.columns);
+    printf("dimension of B_tau: %d x %d\n", res.msk_out.B_tau.rows, res.msk_out.B_tau.columns);
+    printf("num of A: %d\n", PARAMS.Att_num);
+    printf("dimension of A[0]: %d x %d\n", res.pp.A[0].rows, res.pp.A[0].columns);
+    printf("dimension of A_big: %d x %d\n", res.pp.A_big.rows, res.pp.A_big.columns);
+    printf("dimension of v: %d x %d\n", res.pp.v.rows, res.pp.v.columns);
     printf("ABE_Setup test passed\n");
+
+
+    // 构造[R|I]矩阵
+    matrix RI = new_matrix(PARAMS.MBAR+PARAMS.M, PARAMS.M);
+    // 复制R部分
+    for(unsigned int i = 0; i < PARAMS.MBAR; i++) {
+        for(unsigned int j = 0; j < PARAMS.M; j++) {
+            matrix_element(RI, i, j) = matrix_element(res.msk_out.B_tau, i, j);
+        }
+    }
+    // 添加单位矩阵I部分
+    for(unsigned int i = 0; i < PARAMS.M; i++) {
+        for(unsigned int j = 0; j < PARAMS.M; j++) {
+            matrix_element(RI, i + PARAMS.MBAR, j) = (i == j) ? 1 : 0;
+        }
+    }
+    printf("dimension of RI: %d %d\n", RI.rows, RI.columns);
+    // 计算G_p = B * [R|I]
+    // printf("Computing G_p = B * [R|I]...\n");
+    matrix G_p = new_matrix(PARAMS.N, PARAMS.M);
+    mul_matrix(res.pp.B, RI, G_p);
+
+    // 验证G_p == G
+    // printf("Verifying G_p == G...\n");
+    bool valid = true;
+    for(unsigned int i = 0; i < PARAMS.N && valid; i++) {
+        for(unsigned int j = 0; j < PARAMS.M && valid; j++) {
+            if(matrix_element(G_p, i, j) != matrix_element(G, i, j)) {
+                valid = false;
+                printf("Mismatch at (%u,%u): G_p=%lu, G=%lu\n", 
+                    i, j,
+                    matrix_element(G_p, i, j),
+                    matrix_element(G, i, j));
+            }
+        }
+    }
+
+    if(valid) {
+        printf("✓ Trapgen test passed!\n");
+    } else {
+        printf("✗ Trapgen test does not pass!\n");
+    }
+    
+    // Separator line indicating the end of the setup process
+    printf("------End ABE_Setup process------\n");
+
+    // free_matrix(RI);
+    // free_matrix(G_p);
     return res;
 }
 
@@ -42,107 +104,118 @@ bool simple_function_clasuse2(bool* input) {
 }
 
 // 重写后的测试 ABE_KeyEnc 函数
-void test_ABE_KeyEnc(ABE_setup_result setup_res) {
-    uint64_t test_msk = 103;
+ABE_ct test_ABE_Enc(ABE_setup_result setup_res) {
+    real start, end;
     int prf_k = PRF_K; // PRF 门电路比特宽度
     int num_clauses = 2;
-
     // 分配并初始化 dummy clauses
-    Clause* clauses = (Clause*)malloc(num_clauses * sizeof(Clause));
+    ClauseF* clauses = (ClauseF*)malloc(num_clauses * sizeof(ClauseF));
     // Clause 0
     clauses[0].f = simple_function;
-    clauses[0].t_len = 2;
-    clauses[0].T = (int*)malloc(2 * sizeof(int));
-    clauses[0].T[0] = 0;
-    clauses[0].T[1] = 2;
+    clauses[0].clauseT.t_len = 2;
+    clauses[0].clauseT.T = (int*)malloc(2 * sizeof(int));
+    clauses[0].clauseT.T[0] = 0;
+    clauses[0].clauseT.T[1] = 2;
     // Clause 1
     clauses[1].f = simple_function_clasuse2;
+    clauses[1].clauseT.t_len = 2;
+    clauses[1].clauseT.T = (int*)malloc(2 * sizeof(int));
+    clauses[1].clauseT.T[0] = 2;
+    clauses[1].clauseT.T[1] = 3;
+
+    // Separator line indicating the start of the encryption process
+    printf("------start ABE_Enc process------\n");
+
+    // 测试 flag u = true
+    ABE_ct ct;
+    CHRONO("Finished ABE_Enc computation in %fs\n", {
+        ct = ABE_Enc(clauses, num_clauses, setup_res.msk_out, setup_res.pp, true);
+    });
+
+    // 打印密文信息
+    printf("Ciphertext field: sf\n");
+    printf("sf = %lld\n", (long long)ct.sk_f_int);
+
+    // Separator line indicating success of encryption test
+    printf("------End ABE_Enc process------\n");
+
+    // 释放 clauses 内部分配的数组
+    for (int i = 0; i < num_clauses; i++) {
+        free(clauses[i].clauseT.T);
+    }
+    free(clauses);
+
+
+    int count = 0;
+    for (int i = 2 * PRF_K * 3 - 1; i >= 0; i--) {
+        printf("%d", ct.sk_f_bool[i] ? 1 : 0);
+        count++;
+        if (count % 8 == 0)
+            printf(" ");
+    }
+    printf("\n");
+
+    return ct;
+}
+
+ABE_skx test_ABE_KeyGen(ABE_setup_result setup_res) {
+    real start, end;
+
+    int num_clauses = 2;
+    ClauseT* clauses = (ClauseT*)malloc(num_clauses * sizeof(ClauseT));
+    clauses[0].T = (int*)malloc(2 * sizeof(int));
+    clauses[0].t_len = 2;
+    clauses[0].T[0] = 0;
+    clauses[0].T[1] = 2;
+
     clauses[1].t_len = 2;
     clauses[1].T = (int*)malloc(2 * sizeof(int));
     clauses[1].T[0] = 2;
     clauses[1].T[1] = 3;
+    printf("-----start ABE_KeyGen process-----\n");
 
-    // 构造 dummy PRF leaf circuits 用于主密钥
-    circuit** msk_circuits = (circuit**)malloc(prf_k * sizeof(circuit*));
-    for (int i = 0; i < prf_k; i++) {
-        msk_circuits[i] = gen_leaf(i + 1, true);
-    }
+    ABE_skx keys;
+    CHRONO("Finished ABE_KeyGen computation in %fs\n", {
+         keys = ABE_KeyGen(clauses, num_clauses, setup_res.msk_out, setup_res.pp, 12);
+    });
+    // Validate that the produced key components are allocated.
+    assert(keys.r != NULL);
+    assert(keys.k.data != NULL);
 
-    // 分配 dummy S 并构造约束电路树
-    int S_len = prf_k;  // 为测试起见，假设 S 的长度等于 prf_k
-    Pair* S = (Pair*)malloc(S_len * sizeof(Pair));
-    circuit*** sk_f = build_constrain_circuit(clauses, num_clauses, S, &S_len, prf_k, msk_circuits);
-
-    // 获取 ABA_Setup 的输出
-    // ABE_setup_result setup_res = ABE_Setup(test_msk);
-
-    // 测试 flag u = true
-    ABE_ct ct = ABE_KeyEnc(sk_f, setup_res.msk_out, S_len, setup_res.pp, true);
-    // 测试 flag u = true
-    printf("Ciphertext field: sf\n");
-    for (int i = 0; i < S_len; i++) {
-        printf("sf[%d] =", i);
-        for(int j = 0; j < 2 * prf_k; j++) {
-            printf(" %d",ct.sf[i * 2 * prf_k + j]);
-        }
-        printf("\n");
-    }
-
-    printf("Ciphertext field: u0\n");
-    print_matrix(ct.u0);
-
-    printf("Ciphertext field: u1\n");
-    print_matrix(ct.u1);
-
-    printf("Ciphertext field: u2 = %lld\n", (long long)ct.u2);
-    
-
-    // 释放分配的资源
-    // free_matrix(setup_res.pp.B);
-    // free_matrixes(setup_res.pp.A, PARAMS.K + 1);
-    // free_matrix(setup_res.pp.v);
-    // free_matrix(setup_res.msk_out.B_tau);
-    
-    // 释放 clauses 内部分配的数组
-    for (int i = 0; i < num_clauses; i++) {
-        free(clauses[i].T);
-    }
-    free(clauses);
-    free(msk_circuits);
-    free(S);
-    // 根据 build_constrain_circuit 的实现，还可能需要释放 sk_f 内部结构，此处假设有对应的释放函数：
-    // free_sk_f(sk_f, num_clauses, prf_k);
+    printf("-------End ABE_KeyGen process------\n");
+    return keys;
 }
 
-void test_ABE_KeyGen(ABE_setup_result setup_res) {
-    printf("Testing ABE_KeyGen...\n");
-
-    // Generate keys using master secret and public parameters from setup
-    ABE_keys keys = ABE_KeyGen(setup_res.msk_out, setup_res.pp, 48);
-
-    // Validate that the produced key components are allocated.
-    assert(keys.A != NULL);
-    assert(keys.Tf.data != NULL);
-
-    // Print the secret key matrix Tf and first public key component as an example.
-    // printf("Secret key Tf matrix:\n");
-    // print_matrix(keys.Tf);
-    
-    // printf("Public key component A[0]:\n");
-    // print_matrix(keys.A[0]);
-
-    printf("ABE_KeyGen test passed\n");
-
-    // Free keys resources if necessary (assuming corresponding free functions exist)
-    // free_matrix(keys.Tf);
-    // free_matrixes(keys.A, PARAMS.K + 1);
+void test_ABE_Dec(ABE_ct ct, ABE_skx skx, ABE_setup_result setup_res) {
+    real start, end;
+    printf("------start ABE_Dec process------\n");
+    // 解密
+    bool result;
+    CHRONO("Finished ABE_Dec computation in %fs\n", {
+         result = ABE_dec(ct, skx, setup_res);
+    });
+    printf("Decryption result: %s\n", result ? "true" : "false");
+    printf("------End ABE_Dec process------\n");
 }
 
 int main(void) {
 
     ABE_setup_result setup_res = test_ABE_Setup();
-    test_ABE_KeyEnc(setup_res);
-    test_ABE_KeyGen(setup_res);
+    ABE_ct ct = test_ABE_Enc(setup_res);
+
+    int count = 0;
+    for (int i = 2 * PRF_K * 3 - 1; i >= 0; i--) {
+        printf("%d", ct.sk_f_bool[i] ? 1 : 0);
+        count++;
+        if (count % 8 == 0)
+            printf(" ");
+    }
+    printf("\n");
+    ABE_skx skx = test_ABE_KeyGen(setup_res);
+
+    printf("dimension of skx %d x %d \n", skx.k.rows, skx.k.columns);
+    test_ABE_Dec(ct, skx, setup_res);
+
     return 0;
 }
  

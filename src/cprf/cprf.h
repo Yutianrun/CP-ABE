@@ -2,7 +2,7 @@
 #include "../bgg/gen_circuit.h"
 #ifndef CPRF_H
 #define CPRF_H
-
+#define PRF_K 8
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -22,18 +22,17 @@ typedef struct {
     int t_len;    // T 的长度
 } ClauseT;
 
-typedef struct {
-    int* T;       // T 的位置数组
-    int t_len;    // T 的长度
-    circuit *f; // 子句函数
-} ClauseF;
+// typedef struct {
+//     int* T;       // T 的位置数组
+//     int t_len;    // T 的长度
+//     circuit *f; // 子句函数
+// } ClauseF;
 
 
 typedef struct {
-    int* T;       // T 的位置数组
-    int t_len;    // T 的长度
+    ClauseT clauseT; // 子句 T
     bool (*f)(bool*); // 函数 f 的指针
-} Clause;
+} ClauseF;
 
 typedef struct {
     int* T;       // T 的位置数组
@@ -50,9 +49,12 @@ void free_sk_tv(circuit*** sk_tv, int num_clauses);
 circuit*** build_sk_tv(int k, ClauseT* clauses, int num_clauses, circuit** msk, circuit** x);
 circuit** final_prf(int k, circuit*** sk_tv, int num_clauses, circuit** x);
 circuit** build_eval_circuit(int k, ClauseT* clauses, int num_clauses, circuit** msk, circuit** x);
-circuit*** build_constrain_circuit(Clause* clauses, int num_clauses, Pair* S, int* result_len, int k, circuit** msk);
+circuit** build_eval_circuit_fixed_msk(int k, ClauseT* clauses, int num_clauses, bool* msk, circuit** x);
+circuit** initial_prp_circuit_fixed_x(int k, bool* x, circuit** msk);
+circuit*** build_constrain_circuit(ClauseF* clauses, int num_clauses, Pair* S, int* result_len, int k, circuit** msk);
 circuit ** build_constrain_eval_circuit(ClauseT* clauses, int num_clausesF, int num_clasuesT, int k, circuit*** sk_f, circuit** x);
-
+circuit* circuit_set_bit(bool bit_value, circuit* leaf_circuit);
+circuit ** build_constrain_eval_circuit_fixed_x(ClauseT* clauses, int num_clausesF, int num_clasuesT, int k, circuit*** sk_f, bool* x);
 #ifdef __cplusplus
 }
 #endif

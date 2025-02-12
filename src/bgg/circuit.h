@@ -56,6 +56,7 @@ a boolean circuit f and an attribute x, we return
 the associated Hf,x,A matrix in Zq^{kl * l}.
 */
 matrix compute_H(matrix* A, circuit f, attribute x);
+matrix compute_H_prfk(matrix* A, circuit f, attribute x);
 matrix matrix_inverse_mod_q(matrix* A);
 // Returns f(x1, ..., xk)
 bool compute_f(circuit f, attribute x);

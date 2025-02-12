@@ -12,7 +12,7 @@
 #include "sampling.h"
 #include "cprf.h"
 
-#define PRF_K 8
+
 
 
 bool simple_function(bool* input) {
@@ -36,20 +36,22 @@ int main() {
     int prf_k = PRF_K; // 比特宽度，可以根据需要调整
 
     int num_clauses = 2;
-    Clause* clauses = (Clause*)malloc(num_clauses * sizeof(Clause));
+    ClauseF* clauses = (ClauseF*)malloc(num_clauses * sizeof(ClauseF));
 
     clauses[0].f = simple_function;
     clauses[1].f = simple_function_clasuse2;
-    clauses[0].T = (int*)malloc(2 * sizeof(int));
-    clauses[0].t_len = 2;
-    clauses[0].T[0] = 0;
-    clauses[0].T[1] = 2;
-    clauses[1].T = (int*)malloc(2 * sizeof(int));
-    clauses[1].t_len = 2;
-    clauses[1].t_len = 2;
-    clauses[1].T = (int*)malloc(2 * sizeof(int));
-    clauses[1].T[0] = 2;
-    clauses[1].T[1] = 3;
+
+    clauses[0].clauseT.T = (int*)malloc(2 * sizeof(int));
+    clauses[0].clauseT.t_len = 2;
+    clauses[0].clauseT.T[0] = 0;
+    clauses[0].clauseT.T[1] = 2;
+
+    clauses[1].clauseT.T = (int*)malloc(2 * sizeof(int));
+    clauses[1].clauseT.t_len = 2;
+    clauses[1].clauseT.t_len = 2;
+    clauses[1].clauseT.T = (int*)malloc(2 * sizeof(int));
+    clauses[1].clauseT.T[0] = 2;
+    clauses[1].clauseT.T[1] = 3;
 
     // 构建 PRF 电路
     

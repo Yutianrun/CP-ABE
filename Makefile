@@ -1,5 +1,5 @@
 CC = gcc
-CFLAGS = -g -Wall -O3
+CFLAGS = -g -Wall -O0
 INCLUDES = -Isrc -Isrc/bgg -Isrc/sampling -Isrc/utils -Isrc -Isrc/cprf -Isrc/cprf-abe
 
 SRC_DIR = src
@@ -11,7 +11,7 @@ OBJS_O = $(addsuffix .o,$(OBJS_RAW))
 OBJS = $(addprefix $(BUILD_DIR)/,$(OBJS_O))
 
 # list of executables binaries
-EXEC_RAW = sampling circuit bgg cp_bit gen_circuit is_short cp kbitprf_circuit  kbitprf eval eval_circuit constrain constrain_circuit constrain_eval  sampleG trapgen computeH abe
+EXEC_RAW = sampling circuit bgg cp_bit gen_circuit is_short cp kbitprf_circuit  kbitprf eval eval_circuit constrain constrain_circuit constrain_eval constrain_eval_circuit sampleG trapgen computeH abe eval_fixed_msk constrain_eval_fixed_x
 EXEC = $(addprefix test_,$(EXEC_RAW))
 
 # build cp as a library, including math lib

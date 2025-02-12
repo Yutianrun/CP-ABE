@@ -3,7 +3,7 @@
 #include <assert.h>
 #include <stdbool.h>
 #include <stdlib.h>
-
+#include <cprf.h>
 #include "common.h"
 #include "matrix.h"
 
@@ -157,46 +157,6 @@ void circuit_to_string(circuit f, char* buffer, size_t size) {
     snprintf(buffer + strlen(buffer), size - strlen(buffer), ")");
 }
 
-// void free_circuit(circuit* f) {
-//     assert((f->left && f->right) || (!f->left && !f->right));
-//     if (f->left && f->right && f->left != f->right) {
-//         // Check if the circuit represents an XOR operation
-//         if (f->left->left && f->left->right && f->right->left &&  f->right->right)
-//         {
-//             if(f->left->right->left &&f->left->right->right && f->right->left->left && f->right->left->right&& f->left->left == f->right->left->left && f->left->right->left == f->right->right)
-//             {
-//                 free_circuit(f->left->left);
-//                 free_circuit(f->right->right);
-//                 free(f->left->right);
-//                 free(f->right->left);
-//                 free(f->left);
-//                 free(f->right);
-//                 free(f);
-//                 return;
-//             }
-
-//         }
-//     }
-//     if (!f->left && !f->right) {
-//         free(f);
-//         return;
-//     }
-
-//     // Beware do not double free
-//     if (f->left == f->right)
-//         free_circuit(f->left);
-//     else {
-//         free_circuit(f->left);
-//         free_circuit(f->right);
-//     }
-
-
-//     free(f);
-// }
-
-
-
-
 void free_circuit(circuit* f) {
 
     if (!f->left && !f->right) {
@@ -296,7 +256,17 @@ typedef struct H_triplet {
 
 H_triplet new_H_triplet() {
     matrix A = new_matrix(PARAMS.N, PARAMS.L);
-    matrix H = new_matrix(PARAMS.K * PARAMS.L, PARAMS.L);
+    matrix H = new_matrix(PARAMS.Att_num * PARAMS.L, PARAMS.L);
+    H_triplet t;
+    t.A = A;
+    t.x = 0;
+    t.H = H;
+    return t;
+}
+
+H_triplet new_H_triplet_prfk() {
+    matrix A = new_matrix(PARAMS.N, PARAMS.L);
+    matrix H = new_matrix(PRF_K * PARAMS.L, PARAMS.L);
     H_triplet t;
     t.A = A;
     t.x = 0;
@@ -311,6 +281,17 @@ void free_H_triplet(H_triplet* t) {
 
 H_triplet leaf(matrix* A, attribute x, int n) {
     H_triplet t = new_H_triplet();
+    t.A = copy_matrix(A[n]);
+    t.x = get_xn(x, n);
+    // H seen as a column is empty except
+    // in n-th position which is the identity
+    for (int i = 0; i < PARAMS.L; i++)
+        matrix_element(t.H, (n - 1) * PARAMS.L + i, i) = 1;
+    return t;
+}
+
+H_triplet leaf_prfk(matrix* A, attribute x, int n) {
+    H_triplet t = new_H_triplet_prfk();
     t.A = copy_matrix(A[n]);
     t.x = get_xn(x, n);
     // H seen as a column is empty except
@@ -336,7 +317,7 @@ H_triplet compute_H_triplet(matrix* A, circuit f, attribute x) {
 
     matrix inv = new_matrix(PARAMS.L, PARAMS.L);
     matrix tempA = new_matrix(PARAMS.N, PARAMS.L);
-    matrix tempH = new_matrix(PARAMS.K * PARAMS.L, PARAMS.L);
+    matrix tempH = new_matrix(PARAMS.Att_num * PARAMS.L, PARAMS.L);
 
     // Computing new A = Al * G^-1(Ar) - G
     inv_G(tr.A, inv);
@@ -364,10 +345,63 @@ H_triplet compute_H_triplet(matrix* A, circuit f, attribute x) {
     return t;
 }
 
+H_triplet compute_H_triplet_prfk(matrix* A, circuit f, attribute x) {
+    assert((f.left && f.right) || (!f.left && !f.right));
+
+    if (!f.left && !f.right) return leaf_prfk(A, x, f.n);
+
+    // f.left may be equal to f.right (exact same circuit cause exact same
+    // pointer) then we only need to compute recursively on *f.left but if
+    // f.left != f.right we need to recursively compute on *f.right too
+    H_triplet tl, tr;
+    tl = tr = compute_H_triplet_prfk(A, *f.left, x);
+    if (f.left != f.right) tr = compute_H_triplet_prfk(A, *f.right, x);
+
+    H_triplet t = new_H_triplet_prfk();
+
+    matrix inv = new_matrix(PARAMS.L, PARAMS.L);
+    matrix tempA = new_matrix(PARAMS.N, PARAMS.L);
+    matrix tempH = new_matrix(PRF_K * PARAMS.L, PARAMS.L);
+
+    // Computing new A = Al * G^-1(Ar) - G
+    inv_G(tr.A, inv);
+    mul_matrix(tl.A, inv, tempA);
+    sub_matrix(tempA, G, tempA);
+    free_matrix(t.A);
+    t.A = copy_matrix(tempA);
+
+    // Computing new x = 1 - xl * xr
+    t.x = 1 - tl.x * tr.x;
+
+    // Computing new H = Hl * G^-1(Ar) - xl * Hr
+    mul_matrix(tl.H, inv, tempH);
+    if (tl.x) sub_matrix(tempH, tr.H, tempH);
+    free_matrix(t.H);
+    t.H = copy_matrix(tempH);
+
+    // Free time !
+    free_matrix(inv);
+    free_matrix(tempA);
+    free_matrix(tempH);
+    free_H_triplet(&tl);
+    if (f.left != f.right) free_H_triplet(&tr);
+
+    return t;
+}
+
+
+
 matrix compute_H(matrix* A, circuit f, attribute x) {
     H_triplet t = compute_H_triplet(A, f, x);
     matrix H = copy_matrix(t.H);
-    free_H_triplet(&t);
+    // free_H_triplet(&t);
+    return H;
+}
+
+matrix compute_H_prfk(matrix* A, circuit f, attribute x) {
+    H_triplet t = compute_H_triplet_prfk(A, f, x);
+    matrix H = copy_matrix(t.H);
+    // free_H_triplet(&t);
     return H;
 }
 // 计算模Q下的逆元

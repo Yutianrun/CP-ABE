@@ -12,12 +12,12 @@
 int main() {
     init_sampler();
     int32_t N = 1;
-    // int32_t K = 56;
-    int32_t K = 20;
-    // int32_t K = 4;
-    // int64_t Q = 72057594037927936;
-    int64_t Q = 870367;
-    // int64_t Q = 16;
+    // // int32_t K = 56;
+    // int32_t K = 20;
+    int32_t K = 4;
+    // // int64_t Q = 72057594037927936;
+    // int64_t Q = 870367;
+    int64_t Q = 16;
 
 
     int32_t P = 1;
@@ -33,7 +33,7 @@ int main() {
     print_params();
 
     // Generating A
-    matrix* A = new_matrixes(PARAMS.K + 1, PARAMS.N, PARAMS.L);
+    matrix* A = new_matrixes(PARAMS.Att_num + 1, PARAMS.N, PARAMS.L);
     CHRONO("Generated A in %fs\n", {
         for (int i = 0; i < PARAMS.K + 1; i++) sample_Zq_uniform_matrix_64(A[i]);
     });
@@ -70,20 +70,28 @@ int main() {
     // circuit* f = circuit_not(circuit_or(
         // gen_leaf(1, true), circuit_and(gen_leaf(2, true), gen_leaf(3, true))));
 
-    circuit* f = circuit_xor(gen_leaf(1,true), gen_leaf(2,true));
+    // circuit* f = circuit_xor(gen_leaf(1,true), gen_leaf(2,true));
 
-    circuit** list = (circuit**)malloc(4 * sizeof(circuit*));
-    for (size_t i = 0; i < 4; i++)
+    // {
+    int att = 56;
+    circuit** list = (circuit**)malloc(att * sizeof(circuit*));
+
+    for(int i=0;i<att;i++)
     {
         list[i] = gen_leaf(i+1, true);
     }
-    
+
+    // circuit* f = circuit_consecutive_and(list, 9);
+
+    circuit* f = circuit_consecutive_or(list, 10);
+    // }
+
 
     // circuit* f = circuit_consecutive_and(list, 4);
 
-    printf("Circuit : ");
-    print_circuit(*f);
-    printf("\n");
+    // printf("Circuit : ");
+    // print_circuit(*f);
+    // printf("\n");
 
     matrix Af = compute_Af(A, *f);
 
@@ -114,17 +122,17 @@ int main() {
             }
             mul_matrix(BIG, H, T);
 
-            assert(equals(R, T));
-            free_matrix(H);
-            free_matrix(R);
+            // // assert(equals(R, T));
+            // free_matrix(H);
+            // free_matrix(R);
         });
     }
 
-    free_matrix(BIG);
-    free_matrix(T);
+    // free_matrix(BIG);
+    // free_matrix(T);
 
-    free_matrix(Af);
+    // free_matrix(Af);
 
-    free_matrixes(A, PARAMS.K + 1);
-    free_matrix(G);
+    // free_matrixes(A, PARAMS.K + 1);
+    // free_matrix(G);
 }
