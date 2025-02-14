@@ -3,7 +3,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <time.h>
-
+#include <stdlib.h>
 // Defining alias types
 typedef uint64_t scalar;
 typedef int64_t signed_scalar;
@@ -34,16 +34,33 @@ void init_params_default(void);
 // Nicely print current parameters
 void print_params(void);
 
+// void* safe_malloc(size_t size) {
+//     void* ptr = malloc(size);
+//     if(ptr == NULL) {
+//         fprintf(stderr, "Error: Memory allocation failed for size %zu\n", size);
+//         exit(EXIT_FAILURE);
+//     }
+//     return ptr;
+// }
 /*
 double start and double end need to be defined before !
 comment need to include %f specifier to include duration
 */
-#define CHRONO(comment, code)                        \
-    do {                                             \
-        start = (real)clock() / CLOCKS_PER_SEC;      \
-        {code} end = (real)clock() / CLOCKS_PER_SEC; \
-        printf(comment, end - start);                \
+// #define CHRONO(comment, code)                        \
+//     do {                                             \
+//         start = (real)clock() / CLOCKS_PER_SEC;      \
+//         {code} end = (real)clock() / CLOCKS_PER_SEC; \
+//         printf(comment, end - start);                \
+//     } while (0)
+#define CHRONO(comment, code)                                 \
+    do {                                                    \
+        struct timespec start, end;                         \
+        clock_gettime(CLOCK_REALTIME, &start);              \
+        { code }                                           \
+        clock_gettime(CLOCK_REALTIME, &end);                \
+        double elapsed = (end.tv_sec - start.tv_sec) +      \
+            (end.tv_nsec - start.tv_nsec) / 1e9;            \
+        printf(comment, elapsed);                           \
     } while (0)
-
 // Debug parameters
 // #define DEBUG_NORM

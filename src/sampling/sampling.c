@@ -1,6 +1,7 @@
 #include "sampling.h"
 #include "common.h"
 #include "random.h"
+#include <assert.h>
 
 void init_sampler() { random_bytes_init(); }
 
@@ -293,3 +294,31 @@ void SampleD(matrix A, matrix u, matrix R, double sigma, signed_matrix result) {
     }
 }
 
+
+void SamplePre(matrix A, matrix R, matrix u, double sigma, signed_matrix result){  
+    SampleD(A, u, R, sigma, result);
+}
+
+
+void SampleLeft(matrix A, matrix R, matrix B, matrix u, double sigma, matrix result){  
+
+    signed_matrix k1 = new_signed_matrix(A.columns, 1);
+    matrix k2 = new_matrix(B.columns, 1);
+    matrix target_u = new_matrix(u.rows, u.columns);
+    sample_Zq_uniform_matrix(k2);
+    matrix temp = new_matrix(u.rows, u.columns);
+    // printf("dimension of k2 %d x %d\n", k2.rows, k2.columns);
+    mul_matrix(B, k2, temp);
+    sub_matrix(u, temp, target_u);
+    SampleD(A, target_u, R, PARAMS.SIGMA, k1);
+
+    // matrix k_vector = new_matrix(k1.rows + k2.rows, 1);
+
+    assert(result.rows == k1.rows + k2.rows);
+    for (unsigned int i = 0; i < k1.rows; i++) {
+        matrix_element(result, i, 0) = matrix_element(k1, i, 0);
+    }
+    for (unsigned int i = 0; i < k2.rows; i++) {
+        matrix_element(result, k1.rows + i, 0) = matrix_element(k2, i, 0);
+    }
+}

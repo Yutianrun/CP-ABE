@@ -30,7 +30,8 @@ typedef struct {
 
 
 typedef struct {
-    ClauseT clauseT; // 子句 T
+    int* T;       // T 的位置数组
+    int t_len;
     bool (*f)(bool*); // 函数 f 的指针
 } ClauseF;
 

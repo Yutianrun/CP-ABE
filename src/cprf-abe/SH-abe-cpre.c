@@ -1,12 +1,48 @@
 #include "SH-abe-cpre.h"
-#include "abe.h"
+// #include "abe.h"
+#include "cprf.h"
+#include "sampling.h"
+#include "common.h"
+
+// 添加 malloc，检查分配结果
+
+#include "attribute.h"
+#include "circuit.h"
+#include "common.h"
+#include "gen_circuit.h"
+#include "matrix.h"
+#include "sampling.h"
+#include "cprf.h"
+#include <stdlib.h>
+bool initialized = false;
+
+static bool simple_function(bool* input) {
+    if (!input) {
+        fprintf(stderr, "Error: simple_function received NULL pointer\n");
+        exit(EXIT_FAILURE);
+    }
+    return input[0] ^ input[1];
+}
+
+static bool simple_function_clasuse2(bool* input) {
+    if (!input) {
+        fprintf(stderr, "Error: simple_function_clasuse2 received NULL pointer\n");
+        exit(EXIT_FAILURE);
+    }
+    return input[0] & input[1];
+}
 
 SH_ABE_pp  SH_ABE_Setup(void) {
     // Allocating new matrixes
 
-    init_params_default();
-    
+    if(PARAMS.N == 0)
+    {
+        init_params_default();
+    }
+
     matrix* A = new_matrixes(PARAMS.Att_num + 1, PARAMS.N, PARAMS.L);
+    for (int i = 0; i < PARAMS.Att_num; i++) sample_Zq_uniform_matrix(A[i + 1]); 
+
 
     matrix BIG = new_matrix(PARAMS.N, PARAMS.L * PARAMS.Att_num);
     for (int i = 1; i < PARAMS.Att_num+1; i++) {
@@ -58,7 +94,7 @@ SH_ABE_key_pair SH_ABE_KeyGen(SH_ABE_pp pp, int32_t user_index) {
 
 SH_ABE_ct_one SH_ABE_Enc_step1(SH_ABE_pk pk, bool u) {    
     matrix s_vector_trans = new_matrix(1,pk.pp.B.rows);
-    signed_matrix e_vector_signed_trans = new_signed_matrix(1,PARAMS.MBAR);
+    signed_matrix e_vector_signed_trans = new_signed_matrix(1,PARAMS.MBAR+PARAMS.M);
 
     sample_Zq_uniform_matrix(s_vector_trans);
     sample_Z_centered_matrix(e_vector_signed_trans);
@@ -90,11 +126,28 @@ SH_ABE_ct_one SH_ABE_Enc_step1(SH_ABE_pk pk, bool u) {
 
 
 
-SH_ABE_ct SH_ABE_Enc(SH_ABE_pk pk, bool u, ClauseF* clauses, int num_clauses)
+SH_ABE_ct SH_ABE_Enc(SH_ABE_pk pk, bool u)
 {
+
+    int num_clauses = 2;
+    ClauseF* clauses = (ClauseF*)malloc(num_clauses * sizeof(ClauseF));
+    // Clause 0
+    clauses[0].f = simple_function;
+    clauses[0].t_len = 2;
+    clauses[0].T = (int*)malloc(2 * sizeof(int));
+    clauses[0].T[0] = 0;
+    clauses[0].T[1] = 2;
+    // Clause 1
+    clauses[1].f = simple_function_clasuse2;
+    clauses[1].t_len = 2;
+    clauses[1].T = (int*)malloc(2 * sizeof(int));
+    clauses[1].T[0] = 2;
+    clauses[1].T[1] = 3;
+
+    
    //STEP 1: ENC 1
    matrix s_vector_trans = new_matrix(1,pk.pp.B.rows);
-   signed_matrix e_vector_signed_trans = new_signed_matrix(1,PARAMS.MBAR);
+   signed_matrix e_vector_signed_trans = new_signed_matrix(1,PARAMS.MBAR+PARAMS.M);
 
    sample_Zq_uniform_matrix(s_vector_trans);
    sample_Z_centered_matrix(e_vector_signed_trans);
@@ -130,8 +183,10 @@ SH_ABE_ct SH_ABE_Enc(SH_ABE_pk pk, bool u, ClauseF* clauses, int num_clauses)
 
     int S_len;  
     Pair* S = (Pair*)malloc(S_len * sizeof(Pair));
-    circuit*** sk_f = build_constrain_circuit(clauses, num_clauses, S, &S_len, prf_k, msk_circuits);
+    circuit *** sk_f = build_constrain_circuit(clauses, num_clauses, S, &S_len, prf_k, msk_circuits);
 
+
+    // printf("evaluate at enc stage: %d\n", compute_f(*sk_f[2][4], 1));
     printf("param S_len: %d\n", S_len);
     printf("param PARAMS.M: %d\n", PARAMS.M);
     bool* skf_bool = (bool*)malloc(2 * prf_k * S_len * sizeof(bool));
@@ -198,7 +253,8 @@ SH_ABE_ct SH_ABE_Enc(SH_ABE_pk pk, bool u, ClauseF* clauses, int num_clauses)
         .sk_f_int = skf_int,
         .u0 = u0,
         .u1 = u1,  // Using first matrix from array
-        .u2 = u2T
+        .u2 = u2T,
+        .constrain = sk_f
     };
 
 
@@ -206,14 +262,6 @@ SH_ABE_ct SH_ABE_Enc(SH_ABE_pk pk, bool u, ClauseF* clauses, int num_clauses)
 
 }
 
-
-bool simple_function(bool* input) {
-    return input[0] ^ input[1];
-}
-
-bool simple_function_clasuse2(bool* input) {
-    return input[0] & input[1];
-}
 
 
 bool SH_Decj_1(SH_ABE_sk sk, SH_ABE_ct_one ct, SH_ABE_pp pp, SH_ABE_pk pk) {
@@ -259,3 +307,501 @@ bool SH_Decj_2(SH_ABE_sk sk, SH_ABE_ct ct, SH_ABE_pk pk) {
     u =parsed_u1- matrix_element(temp,0,0);
     return (llabs(u) > (PARAMS.Q / 4));
 }
+
+matrix BD(matrix v) {
+    // Compute bit length from the modulus PARAMS.Q
+    int n = v.rows;
+    int bit_length = 0;
+    int64_t q_temp = PARAMS.Q;
+    while (q_temp > 0) {
+        bit_length++;
+        q_temp >>= 1;
+    }
+    // Create a new column vector of length n * bit_length to store the bit-decomposition
+    matrix bd = new_matrix(n * bit_length, 1);
+    for (int i = 0; i < bit_length; i++) {
+        for (int r = 0; r < n; r++) {
+            int64_t val = matrix_element(v, r, 0);
+            // Extract the i-th bit of this component
+            int bit = (int)((val >> i) & 1);
+            // Store the bit in the proper position:
+            // the bits are concatenated as (v0 ; v1 ; ... ; v_{bit_length - 1})
+            matrix_element(bd, i * n + r, 0) = bit;
+        }
+    }
+    return bd;
+}
+
+matrix P2(matrix x) {
+    // Compute bit length from the modulus PARAMS.Q
+    int n = x.rows;
+    int bit_length = 0;
+    int64_t q_temp = PARAMS.Q;
+    while (q_temp > 0) {
+        bit_length++;
+        q_temp >>= 1;
+    }
+    // Create a new vector of length n * bit_length to store the result.
+    matrix x_bar = new_matrix(n * bit_length, 1);
+    for (int i = 0; i < bit_length; i++) {
+        // Using left-shift to compute 2^i (mod PARAMS.Q)
+        int64_t factor = ((int64_t)1 << i) % PARAMS.Q;
+        for (int r = 0; r < n; r++) {
+            matrix_element(x_bar, i * n + r, 0) = (matrix_element(x, r, 0) * factor) % PARAMS.Q;
+        }
+    }
+    return x_bar;
+}
+
+
+
+SH_ABE_ReEnc_key SH_ABE_Re_KeyGen(ClauseT* clauses, int num_clauses, SH_ABE_sk sk, SH_ABE_pk pk, int64_t x){
+
+    real start, end;
+    int prf_k = 8; // 比特宽度，可以根据需要调整
+
+    // KEY-GEN STEP 1: 构造 clause 以及 PRF 电路
+    printf(">KEY-GEN STEP 1: 构造 PRF 电路.\n");
+
+    // 构建 PRF 电路
+    circuit** x_cir = (circuit**)malloc(prf_k * sizeof(circuit*));
+    circuit** msk_cir = (circuit**)malloc(prf_k * sizeof(circuit*));
+    for (int i = 0; i < prf_k; i++) {
+        x_cir[i] = gen_leaf(i + 1, true);
+        msk_cir[i] = gen_leaf(i + 1 + prf_k, true);
+    }
+    circuit ** eval = build_eval_circuit(prf_k, clauses, num_clauses, msk_cir, x_cir);
+    printf("evaluate at reENc stage: %d", compute_f(*eval[7], 1));
+    matrix bigAx_concat = new_matrix(PARAMS.N, prf_k * PARAMS.M);
+    matrix bigAH_concat = new_matrix(PARAMS.L * PARAMS.Att_num, prf_k * PARAMS.M);
+
+    printf("initial BIG finished\n");
+    printf("dimension of A: %d x %d\n", pk.pp.A[0].rows, pk.pp.A[0].columns);
+    printf("dimension of BIG: %d x %d\n", pk.pp.A_big.rows, pk.pp.A_big.columns);
+    printf("dimension of G: %d x %d\n", G.rows, G.columns);
+    printf("dimension of bigAf_concat: %d x %d\n", bigAx_concat.rows, bigAx_concat.columns);
+    printf("dimension of bigAH_concat: %d x %d\n", bigAH_concat.rows, bigAH_concat.columns);
+    
+    int col_offset = 0;
+    for (int j = 0; j < prf_k; j++) {
+        printf("Progress: computing Af for index %d out of %d...\n", j + 1, prf_k);
+        matrix currAx = compute_Af(pk.pp.A, *eval[j]);
+        printf("dimension of currAx: %d x %d \n", currAx.rows, currAx.columns);
+        for (unsigned int r = 0; r < PARAMS.N; r++) {
+            for (unsigned int c = 0; c < PARAMS.M; c++) {
+                matrix_element(bigAx_concat, r, col_offset + c) = matrix_element(currAx, r, c);
+            }
+        }
+        col_offset += PARAMS.M;
+    }
+
+    // KEY-GEN STEP 2: 计算 r 值.
+    printf(">KEY-GEN STEP 2: 计算 r 值.\n");
+    bool *r = (bool*)malloc(prf_k * sizeof(bool));
+    uint32_t input = (sk.msk.sigma << prf_k) | x; // 组合前k位和 msk.sigma
+    printf("Input (binary): ");
+    for (int bit = sizeof(uint32_t)*8 - 1; bit >= 0; bit--) {
+        printf("%d", (input >> bit) & 1);
+        if (bit % 8 == 0 && bit != 0)
+            printf(" ");
+    }
+    printf("\n");
+
+    for (int j = 0; j < PRF_K; j++) {
+        r[j] = compute_f(*eval[j], input);
+    }
+    printf("Reversed binary r : ");
+    for (int i = PRF_K - 1; i >= 0; i--) {
+        printf("%d ", r[i] ? 1 : 0);
+    }
+    printf("\n");
+
+    
+    // Build an equality circuit for key verification.
+    circuit* bit_check[PRF_K];
+    for (int i = 0; i < PRF_K; i++) {
+        circuit* bit = gen_leaf(i + 1, true);
+        if (!r[i]) {
+            bit_check[i] = circuit_not(bit);
+        } else {
+            bit_check[i] = bit;
+        }
+    }
+
+    circuit* equality_circuit = circuit_consecutive_and(bit_check, PRF_K);
+    matrix Arf = compute_Af(pk.pp.A, *equality_circuit);
+    printf("dimension of Arf: %d x %d\n", Arf.rows, Arf.columns);
+
+    // 使用 r 值构造 key 仿真矩阵 BIG_eight.
+    matrix BIG_eight = new_matrix(PARAMS.N, PARAMS.L * prf_k);
+    for (int i = 0; i < prf_k ; i++) {
+        matrix ti = copy_matrix(pk.pp.A[i]);
+        for (int j = 0; j < PARAMS.N; j++)
+            for (int k = 0; k < PARAMS.L; k++)
+                matrix_element(BIG_eight, j, i * PARAMS.L + k) = matrix_element(ti, j, k);
+        free_matrix(ti);
+    }
+
+    matrix Hr = compute_H_from_A_Af(&BIG_eight, &Arf);
+    printf("dimension of Hr: %d x %d\n", Hr.rows, Hr.columns);
+
+    matrix Axr = new_matrix(bigAx_concat.rows, Hr.columns);
+    mul_matrix(bigAx_concat, Hr, Axr);
+    printf("dimension of Axr: %d x %d\n", Axr.rows, Axr.columns);
+
+    //sample left
+    matrix result_d = new_matrix(Axr.columns+pk.pp.B.columns, 1);
+    printf("dimension of pk.v: %d x %d\n", pk.v.rows, pk.v.columns);
+    SampleLeft(pk.pp.B, sk.msk.B_tau, Axr, pk.v, PARAMS.SIGMA, result_d );
+
+    // Choosing randomly R1 ∈ χ(m′+m)⌈log q⌉×n, R2 ∈ χ(m′+m)⌈log q⌉×m′ and r3 ∈ χ(m′+m)⌈log q⌉
+    matrix R1 = new_matrix((PARAMS.MBAR + PARAMS.M+PARAMS.M)*PARAMS.K, PARAMS.N);
+    matrix R2 = new_matrix((PARAMS.MBAR + PARAMS.M+PARAMS.M)*PARAMS.K, PARAMS.MBAR+PARAMS.M);
+    matrix r3 = new_matrix((PARAMS.MBAR + PARAMS.M+PARAMS.M)*PARAMS.K, 1);
+
+    sample_Zq_uniform_matrix(R1);
+    sample_Zq_uniform_matrix(R2);
+    sample_Zq_uniform_matrix(r3);
+
+    // Construct matrix Z as:
+    // Z = [ R1 * B_beta + R2,   R1 * v_beta + r3 - P2_d ]
+    //     [      0_{1×m'}   ,              1         ]
+
+    // Compute the left block: R1*B_beta + R2
+    matrix temp1 = new_matrix(R1.rows, pk.B.columns);
+    mul_matrix(R1, pk.B, temp1);
+    matrix left_block = new_matrix(R1.rows, R2.columns);
+    add_matrix(temp1, R2, left_block);
+    free_matrix(temp1);
+
+    // Compute the right block: R1*v_beta + r3 - P2_d
+    matrix temp2 = new_matrix(R1.rows, pk.v.columns);
+    mul_matrix(R1, pk.v, temp2);
+    matrix temp3 = new_matrix(R1.rows, 1);
+    add_matrix(temp2, r3, temp3);
+    matrix right_block = new_matrix(R1.rows, 1);
+    sub_matrix(temp3, P2(result_d), right_block);
+    free_matrix(temp2);
+    free_matrix(temp3);
+
+    // Concatenate left_block and right_block horizontally to form the top part of Z
+    int top_rows = left_block.rows;
+    int top_cols = left_block.columns + right_block.columns;
+    matrix Z_top = new_matrix(top_rows, top_cols);
+    for (unsigned int i = 0; i < left_block.rows; i++) {
+        for (unsigned int j = 0; j < left_block.columns; j++) {
+            matrix_element(Z_top, i, j) = matrix_element(left_block, i, j);
+        }
+        for (unsigned int j = 0; j < right_block.columns; j++) {
+            matrix_element(Z_top, i, left_block.columns + j) = matrix_element(right_block, i, j);
+        }
+    }
+    free_matrix(left_block);
+    free_matrix(right_block);
+
+    // Create the bottom row: a zero row of length (top_cols - 1) with a trailing 1
+    matrix Z_bottom = new_matrix(1, top_cols);
+    for (unsigned int j = 0; j < top_cols - 1; j++) {
+        matrix_element(Z_bottom, 0, j) = 0;
+    }
+    matrix_element(Z_bottom, 0, top_cols - 1) = 1;
+
+    // Vertically concatenate Z_top and Z_bottom to build the final Z
+    matrix Z = new_matrix(Z_top.rows + 1, top_cols);
+    for (unsigned int i = 0; i < Z_top.rows; i++) {
+        for (unsigned int j = 0; j < top_cols; j++) {
+            matrix_element(Z, i, j) = matrix_element(Z_top, i, j);
+        }
+    }
+    for (unsigned int j = 0; j < top_cols; j++) {
+        matrix_element(Z, Z_top.rows, j) = matrix_element(Z_bottom, 0, j);
+    }
+
+
+    // Z is now constructed as required.
+    
+    // Set the re-encryption ciphertext
+    SH_ABE_ReEnc_key re_enc_key = {
+        .r = r,
+        .Z = Z,
+        .eval = eval
+    };
+
+    return re_enc_key;
+}
+
+
+
+
+SH_ABE_ct SH_ReEnc(SH_ABE_ReEnc_key rkx, SH_ABE_ct ct, SH_ABE_pp pp, SH_ABE_pk pk) {
+
+   int prf_k = PRF_K; // 比特宽度，可以根据需要调整
+    // 解析密钥 rkx = (r, k)
+    bool* r = rkx.r;
+
+    // Parse ciphertext components from ct
+    matrix parsed_u0 = ct.u0;
+    matrix parsed_u1 = ct.u2;
+    int64_t parsed_u2 = ct.u1;
+    int64_t parsed_sf = ct.sk_f_int;
+    bool* parsed_sf_bool = ct.sk_f_bool;
+
+    int num_clausesT = 2;
+    int num_clausesF = 3;
+    ClauseT* clauses = (ClauseT*)malloc(num_clausesT * sizeof(ClauseT));
+    clauses[0].T = (int*)malloc(2 * sizeof(int));
+    clauses[0].t_len = 2;
+    clauses[0].T[0] = 0;
+    clauses[0].T[1] = 2;
+
+    clauses[1].T = (int*)malloc(2 * sizeof(int));
+    clauses[1].t_len = 2;
+    clauses[1].T[0] = 2;
+    clauses[1].T[1] = 3;
+    // 构建 PRF 电路
+
+
+    int num_clauses = 2;
+    ClauseF* clausesf = (ClauseF*)malloc(num_clauses * sizeof(ClauseF));
+    // Clause 0
+    clausesf[0].f = simple_function;
+    clausesf[0].t_len = 2;
+    clausesf[0].T = (int*)malloc(2 * sizeof(int));
+    clausesf[0].T[0] = 0;
+    clausesf[0].T[1] = 2;
+    // Clause 1
+    clausesf[1].f = simple_function_clasuse2;
+    clausesf[1].t_len = 2;
+    clausesf[1].T = (int*)malloc(2 * sizeof(int));
+    clausesf[1].T[0] = 2;
+    clausesf[1].T[1] = 3;
+
+    circuit** x = (circuit**)malloc((prf_k) * sizeof(circuit*));
+    circuit** msk = (circuit**)malloc((prf_k) * sizeof(circuit*));
+    circuit** x_cir = (circuit**)malloc((prf_k) * sizeof(circuit*));
+    circuit** msk_cir = (circuit**)malloc((prf_k) * sizeof(circuit*));
+    
+    for(int i = 0;i< prf_k; i++){
+        x[i] = gen_leaf(i+1, true);
+        msk[i] = gen_leaf(i+1, true);
+        x_cir[i] = gen_leaf(i+1, true);
+        msk_cir[i] = gen_leaf(i+1+prf_k, true);
+    }
+    printf("initial circuit start\n");
+
+    int S_len =100; // 示例长度
+    Pair* S = (Pair*)malloc(S_len * sizeof(Pair));
+
+
+    circuit** eval = build_eval_circuit(prf_k, clauses, num_clausesT, msk_cir, x_cir);
+    // circuit** eval = build_eval_circuit_fixed_x(prf_k, clauses, num_clausesT, msk_cir, x_cir, x_bool);
+
+    circuit*** sk_f = malloc(num_clausesF * sizeof(circuit**));
+    for (int i = 0; i <  num_clausesF; i++) {
+        sk_f[i] = malloc(2* prf_k * sizeof(circuit*));
+        for(int j = 0; j < 2* prf_k; j++) {
+            sk_f[i][j] = gen_leaf(2*prf_k*i + j +1, true);
+        }
+    }
+
+    circuit*** constrain = malloc(num_clausesF * sizeof(circuit**));
+    for (int i = 0; i <  num_clausesF; i++) {
+        constrain[i] = malloc(2* prf_k * sizeof(circuit*));
+        for(int j = 0; j < 2* prf_k; j++) {
+            constrain[i][j] = gen_leaf(2*prf_k*i + j +1, true);
+        }
+    }
+
+    bool xvalue[] = {0, 0, 1, 1, 0, 0, 0, 0};
+    bool* x_bool = xvalue;
+
+    constrain = build_constrain_circuit(clausesf, num_clauses, S, &S_len, prf_k, msk_cir);
+    compute_f(*constrain[1][1], 1);
+    // circuit** constrain_eval  = build_constrain_eval_circuit(clauses, num_clausesF, num_clausesT, prf_k, sk_f, x);
+    circuit** constrain_eval  = build_constrain_eval_circuit_fixed_x(clauses, num_clausesF, num_clausesT, prf_k, sk_f, x_bool);
+    // compute_f(**constrain_eval, 1);
+    // circuit** constrain_eval  = build_constrain_eval_circuit_fixed_x(clauses, num_clausesF, num_clausesT, prf_k, sk_f, x_bool);
+    //     int num_clausesT = 2;
+    // int num_clausesF = 3;
+    // constrain_eval  = build_constrain_eval_circuit(clauses, num_clausesF, num_clausesT, prf_k, sk_f, x);
+    // circuit*** constrain = malloc(num_clausesF * sizeof(circuit**));
+    // for (int i = 0; i <  num_clausesF; i++) {
+    //     constrain[i] = malloc(2* prf_k * sizeof(circuit*));
+    // }
+
+
+
+
+    printf("initial circuit finished\n");
+   bool r_prime[PRF_K];
+
+    uint64_t input = parsed_sf ;
+    printf("Decryption: Computing r_prime values:%lld \n", input);
+    
+    printf("binary r_prime: ");
+    for(int i = 0; i < PRF_K; i++) {
+        r_prime[i] = compute_f(*constrain_eval[i], input);
+        printf("%d ", r_prime[i] ? 1 : 0);
+    }
+    printf("\n");
+
+    printf("Decryption: abe sk r values:\n");
+    for(int i =0;i<PRF_K;i++){
+        printf("%d ", rkx.r[i] ? 1 : 0);
+    }
+    printf("\n");
+    // // 如果 r 等于 r′ 则中止
+    bool all_equal = true;
+    for (int i = 0; i < PRF_K; i++) {
+        if (rkx.r[i] != r_prime[i]) {
+            all_equal = false;
+            break;
+        }
+    }
+    if (all_equal) {
+        printf("Decryption aborted: r is completely equal to r'.\n");
+        abort();
+    }
+
+    int r_prime_int = 0;
+    int col_offset = 0;
+    for (int i = 0; i < PRF_K; i++) {
+        if (r_prime[i])
+            r_prime_int |= (1 << i);
+    }
+    printf("Combined r_prime into int: %d\n", r_prime_int);
+
+
+    printf("dimension of A: %d x %d\n", pk.pp.A[0].rows,pk.pp.A[0].columns);
+    printf("dimension of BIG: %d x %d\n", pk.pp.A_big.rows,pk.pp.A_big.columns);
+    printf("dimension of G: %d x %d\n", G.rows,G.columns);
+
+    // print_matrix(pk.pp.A[1]);
+    // 计算  Ax，依据  KeyGen 的实现
+    matrix bigAf_concat = new_matrix(PARAMS.N, S_len * 2 * prf_k * PARAMS.M);
+    col_offset = 0;
+    for (int i = 0; i < S_len; i++) {
+        for (int j = 0; j < 2 * prf_k; j++) {
+            matrix currAf = compute_Af(pk.pp.A, *constrain[i][j]);
+            for (unsigned int r = 0; r < PARAMS.N; r++) {
+                for (unsigned int c = 0; c < PARAMS.M; c++) {
+                    matrix_element(bigAf_concat, r, col_offset + c) = matrix_element(currAf, r, c);
+                }
+            }
+            col_offset += PARAMS.M;
+        }
+    }
+
+    printf("dimension of bigAf_concat: %d x %d\n", bigAf_concat.rows,bigAf_concat.columns);
+    col_offset = 0;
+    printf("S_len: %d\n", S_len);
+
+    matrix bigAx_concat = new_matrix(PARAMS.N,  prf_k * PARAMS.M);
+    printf("dimension of bigAx_concat: %d x %d\n", bigAx_concat.rows,bigAx_concat.columns);
+    for (int j = 0; j <  prf_k; j++) {
+        // printf("Progress: computing Ax for index %d out of %d...\n", j + 1, prf_k);
+        matrix currAfx = compute_Af(pk.pp.A, *eval[0]);
+        // printf("computed AF finished\n");
+        // printf(" dimension of currAx: %d x %d \n", currAfx.rows,currAfx.columns);
+
+        for (unsigned int r = 0; r < PARAMS.N; r++) {
+            for (unsigned int c = 0; c < PARAMS.M; c++) {
+                matrix_element(bigAx_concat, r, col_offset + c) = matrix_element(currAfx, r, c);
+            }
+        }
+        col_offset += PARAMS.M;
+    }
+
+    printf("dimension of bigAx_concat: %d x %d\n", bigAx_concat.rows,bigAx_concat.columns);
+
+     //Ir circuit
+    circuit* bit_check[PRF_K];
+    for (int i = 0; i < PRF_K; i++) {
+        circuit* bit = gen_leaf(i + 1, true);
+        if (!r[i]) {
+            bit_check[i] = circuit_not(bit);
+        } else {
+            bit_check[i] = bit;
+        }
+    }
+
+    circuit* equality_circuit = circuit_consecutive_and(bit_check, PRF_K);
+
+
+    printf("start to compute Hr\n");
+    matrix bigHconstrain_eval = new_matrix(PARAMS.L * PARAMS.Att_num,  prf_k  * PARAMS.M);
+
+    printf("alloc matrix constrain_eval_Af\n");
+    matrix* constrain_eval_Af = new_matrixes(PARAMS.Att_num+1, PARAMS.N, PARAMS.M);
+    for (int i = 1; i <= PARAMS.Att_num; i++) {
+        for (unsigned int r = 0; r < PARAMS.N; r++) {
+            for (unsigned int c = 0; c < PARAMS.M; c++) {
+                matrix_element(constrain_eval_Af[i], r, c) = matrix_element(bigAf_concat, r, (i - 1) * PARAMS.M + c);
+            }
+        }
+    }
+
+    printf("alloc matrix eval_Ax\n");
+    matrix* eval_Ax = new_matrixes(prf_k+1, PARAMS.N, PARAMS.M);
+    for(int i = 1; i<prf_k+1; i++){
+        for (unsigned int r = 0; r < PARAMS.N; r++) {
+            for (unsigned int c = 0; c < PARAMS.M; c++) {
+                matrix_element(eval_Ax[i], r, c) = matrix_element(bigAx_concat, r, (i - 1) * PARAMS.M + c);
+            }
+        }
+    }
+
+    // for(int i =0; i<prf_k; i++){
+    //     matrix Hconstrain_eval = compute_H(constrain_eval_Af, *constrain_eval[0], parsed_sf);
+    //     printf("Progress: computing Hr for index %d out of %d...\n", i + 1, prf_k);
+    //     printf("dimension of Hconstrain_eval: %d x %d\n", Hconstrain_eval.rows,Hconstrain_eval.columns);
+    //     int col_offset = i * Hconstrain_eval.columns;
+    //     for (unsigned int r = 0; r < Hconstrain_eval.rows; r++) {
+    //         for (unsigned int c = 0; c < Hconstrain_eval.columns; c++) {
+    //             matrix_element(bigHconstrain_eval, r, col_offset + c) = matrix_element(Hconstrain_eval, r, c);
+    //         }
+    //     }
+    // } 
+    omp_set_num_threads(8);
+    #pragma omp parallel for
+    for (int i = 0; i < prf_k; i++) {
+        matrix Hconstrain_eval = compute_H(constrain_eval_Af, *constrain_eval[0], parsed_sf);
+        // 使用一次临界区输出调试信息
+        #pragma omp critical
+        {
+            printf("Progress: computing Hr for index %d out of %d...\n", i + 1, prf_k);
+            printf("dimension of Hconstrain_eval: %d x %d\n", Hconstrain_eval.rows, Hconstrain_eval.columns);
+        }
+        int col_offset = i * Hconstrain_eval.columns;
+        // 创建线程本地数组(假设bigHconstrain_eval的写入操作需要同步)
+        // 这里仅作为示例展示如何减少多次临界区调用，实际需要根据matrix结构调整逻辑
+        for (unsigned int r = 0; r < Hconstrain_eval.rows; r++) {
+            for (unsigned int c = 0; c < Hconstrain_eval.columns; c++) {
+                int value = matrix_element(Hconstrain_eval, r, c);
+                // 合并写入：用一次临界区
+                #pragma omp critical
+                {
+                    matrix_element(bigHconstrain_eval, r, col_offset + c) = value;
+                }
+            }
+        }
+    }
+    printf("\n");
+
+    printf("dimension of big Hconstrain_eval: %d x %d\n", bigHconstrain_eval.rows,bigHconstrain_eval.columns);
+
+    // for(int i =0;i<prf_k;i++){
+    matrix Hidentity= compute_H_prfk(eval_Ax, *equality_circuit,r_prime_int);
+    printf("dimension of Hidentity: %d x %d\n", Hidentity.rows,Hidentity.columns);
+
+
+    matrix HH = new_matrix(bigHconstrain_eval.rows, Hidentity.columns);
+    
+    mul_matrix(bigHconstrain_eval, Hidentity, HH);
+    
+    matrix uHH = new_matrix(parsed_u1.rows, HH.columns);
+
+    mul_matrix(parsed_u1, HH, uHH);
+
+}
+

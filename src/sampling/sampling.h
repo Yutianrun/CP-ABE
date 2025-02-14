@@ -43,3 +43,5 @@ void sample_Z_centered_matrix(signed_matrix A);
 void SampleD(matrix A, matrix u, matrix R, double sigma, signed_matrix result);
 void sample_Zq_invertible_matrix(matrix A);
 void SampleG(scalar q, scalar u, double s, int k, int* result);
+void SamplePre(matrix A, matrix R, matrix u, double sigma, signed_matrix result);
+void SampleLeft(matrix A, matrix R, matrix B, matrix u, double sigma, matrix result);

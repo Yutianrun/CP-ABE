@@ -1,6 +1,9 @@
 {
     "version": "0.2",
     "configurations": [
+    
+
+
 
 
 
@@ -66,7 +69,7 @@
                     "ignoreFailures": true
                 }
             ],
-            "preLaunchTask": "Build test_circuit"
+            // "preLaunchTask": "Build test_circuit"
         },
 
         {
@@ -222,7 +225,6 @@
                     "ignoreFailures": true
                 }
             ],
-            "preLaunchTask": "Build test_eval_circuit"
         },
 
 
@@ -245,7 +247,51 @@
             ],
             "preLaunchTask": "Build test_constrain_eval"
         },
+
+
+        {
+            "name": "Debug test_sh_abe",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/build/test_sh_abe",
+            "args": [],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}",
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ],
+        },
+
+        {
+            "name": "Debug test_mh_abe",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/build/test_mh_abe",
+            "args": [],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}",
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ],
+        },
+
+
+
     ],
+
+    
     "inputs": [
         {
             "id": "args",

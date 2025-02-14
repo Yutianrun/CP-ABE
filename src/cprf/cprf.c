@@ -253,13 +253,22 @@ circuit** encode_Tx(int k, ClauseT clause, circuit** x) {
 
 circuit** encode_Tx_fixed_x(int k, ClauseT clause, bool* x) {
     // 初始化一个 k 位全0的电路
-    circuit** encoded = (circuit**)malloc(sizeof(circuit*) * k*clause.t_len);
+    circuit** encoded = (circuit**)malloc(sizeof(circuit*) * k);
+    for(int i =0;i<k;i++){
+        encoded[i] = NULL;
+    }
+
     if (encoded == NULL) {
         fprintf(stderr, "内存分配失败\n");
         exit(1);
     }
-    circuit* temp = malloc(sizeof(circuit));
-    temp = gen_leaf(2, true);
+    for(int i =0;i<k;i++){
+        encoded[i] = NULL;
+    }
+
+    circuit* temp = gen_leaf(2, true);
+
+
     for(int i =0;i<clause.t_len;i++){
         // printf("T[%d] = %d\n",i,clause.T[i]);
         encoded[clause.T[i]] = circuit_set_bit(1, temp);
@@ -272,12 +281,19 @@ circuit** encode_Tx_fixed_x(int k, ClauseT clause, bool* x) {
         }
     }
 
+    // compute_f(*encoded[1], 1);
+    // printf("compute_f success\n");
+
     return encoded;
 }
 
 circuit** encode_pair(int k, Pair pair, circuit* arbitray) {
     // 初始化一个 k 位全0的电路
     circuit** encoded = (circuit**)malloc(sizeof(circuit*) * k);
+
+    for(int i =0;i<k;i++){
+        encoded[i] = NULL;
+    }
     if (encoded == NULL) {
         fprintf(stderr, "内存分配失败\n");
         exit(1);
@@ -311,9 +327,9 @@ circuit*** allocate_sk_tv(int num_clauses, int k) {
         if (sk_tv[i] == NULL) {
             fprintf(stderr, "内存分配失败用于 sk_tv[%d]\n", i);
             for(int j = 0; j < i; j++) {
-                free(sk_tv[j]);
+                // free(sk_tv[j]);
             }
-            free(sk_tv);
+            // free(sk_tv);
             exit(1);
         }
     }
@@ -324,9 +340,9 @@ circuit*** allocate_sk_tv(int num_clauses, int k) {
 // 释放 sk_tv 的函数
 void free_sk_tv(circuit*** sk_tv, int num_clauses) {
     for(int i = 0; i < num_clauses; i++) {
-        free(sk_tv[i]);
+        // free(sk_tv[i]);
     }
-    free(sk_tv);
+    // free(sk_tv);
 }
 
 // 构建 sk_tv 的函数
@@ -343,7 +359,7 @@ circuit*** build_sk_tv(int k, ClauseT* clauses, int num_clauses, circuit** msk, 
         sk_tv[i] = initial_prp_circuit(k, encoded_Tv, msk);
         if (sk_tv[i] == NULL) {
             fprintf(stderr, "合并输入失败用于 sk_tv[%d]\n", i);
-            free_sk_tv(sk_tv, num_clauses);
+            // free_sk_tv(sk_tv, num_clauses);
             exit(1);
         }
     }
@@ -363,7 +379,7 @@ circuit*** build_sk_tv_fixed_msk(int k, ClauseT* clauses, int num_clauses, bool*
         sk_tv[i] = initial_prp_circuit_fixed_msk(k, encoded_Tv, msk);
         if (sk_tv[i] == NULL) {
             fprintf(stderr, "合并输入失败用于 sk_tv[%d]\n", i);
-            free_sk_tv(sk_tv, num_clauses);
+            // free_sk_tv(sk_tv, num_clauses);
             exit(1);
         }
     }
@@ -383,7 +399,7 @@ circuit** final_prf(int k, circuit*** sk_tv, int num_clauses, circuit** x) {
         circuit** prf_output = initial_prp_circuit(k, x, sk_tv[i]);
         if (prf_output == NULL) {
             fprintf(stderr, "PRF 计算失败用于 prf_output[%d]\n", i);
-            free(prf_outputs);
+            // free(prf_outputs);
             exit(1);
         }
 
@@ -435,11 +451,11 @@ Pair* compute_Sf_i(ClauseF clause, Pair* S, int S_len, int* result_len) {
     Pair* Sf_i = (Pair*)malloc(S_len * sizeof(Pair)); // 最多 S_len 个结果
     *result_len = 0;
 
-    for (int i = 0; i < (1 << clause.clauseT.t_len); i++) {
+    for (int i = 0; i < (1 << clause.t_len); i++) {
         // printf("i = %d\n",i);
         // Generate v array based on the current value of i
-        bool v[clause.clauseT.t_len];
-        for (int bit = 0; bit < clause.clauseT.t_len; bit++) {
+        bool v[clause.t_len];
+        for (int bit = 0; bit < clause.t_len; bit++) {
             v[bit] = (i & (1 << bit)) ? true : false;
         }
 
@@ -456,12 +472,12 @@ Pair* compute_Sf_i(ClauseF clause, Pair* S, int S_len, int* result_len) {
             Pair new_pair;
             // Initialize new_pair.t based on clause.t
             // Assuming Clause has a member 't' which is an array
-            new_pair.T = malloc(clause.clauseT.t_len * sizeof(int));
-            new_pair.v = malloc(clause.clauseT.t_len * sizeof(int));
-            new_pair.t_len = clause.clauseT.t_len;
+            new_pair.T = malloc(clause.t_len * sizeof(int));
+            new_pair.v = malloc(clause.t_len * sizeof(int));
+            new_pair.t_len = clause.t_len;
             // printf("new_pair.t_len = %d\n", new_pair.t_len);
-            for (int t_idx = 0; t_idx < clause.clauseT.t_len; t_idx++) {
-                new_pair.T[t_idx] = clause.clauseT.T[t_idx];
+            for (int t_idx = 0; t_idx < clause.t_len; t_idx++) {
+                new_pair.T[t_idx] = clause.T[t_idx];
                 new_pair.v[t_idx] = v[t_idx] ? 1 : 0;
             }
 
@@ -473,7 +489,7 @@ Pair* compute_Sf_i(ClauseF clause, Pair* S, int S_len, int* result_len) {
 
     for(int i = 0; i < *result_len; i++) {
         printf("Sf_i[%d] : ", i);
-        for (int j = 0; j < clause.clauseT.t_len; j++) {
+        for (int j = 0; j < clause.t_len; j++) {
             printf("T[%d] = %d, v[%d] = %d ", j, Sf_i[i].T[j], j, Sf_i[i].v[j]);
 
         }
@@ -567,6 +583,12 @@ circuit*** compute_sk_f(Pair* Sf, int Sf_len, circuit** msk, int k) {
     for (int i = 0; i <  Sf_len; i++) {
         sk_f[i] = malloc(2* k * sizeof(circuit*));
     }
+
+    for(int i=0;i<Sf_len;i++){
+        for(int j=0;j<2*k;j++){
+            sk_f[i][j] = NULL;
+        }
+    }
     if (sk_f == NULL) {
         fprintf(stderr, "内存分配失败用于 sk_f\n");
         exit(1);
@@ -589,16 +611,18 @@ circuit*** compute_sk_f(Pair* Sf, int Sf_len, circuit** msk, int k) {
             sk_f[i][j] = encoded_Tv[j];
             // printf("return success\n");
             sk_f[i][k + j] = prf_output[j];
+            compute_f(*sk_f[i][j], 1);
         }
     }
+
     return sk_f;
 }
 
 // 综合构建电路的主函数
 circuit*** build_constrain_circuit(ClauseF* clauses, int num_clauses, Pair* S, int* result_len, int k, circuit** msk) {
 
-    int S_len = (1 << k) * num_clauses; // 示例长度
-
+    int S_len =500; // 示例长度
+    
     // printf("debug here\n");
     Pair* Sf = compute_Sf(clauses, num_clauses, S, S_len, result_len);
     for(int i =0;i<*result_len;i++){
@@ -612,10 +636,8 @@ circuit*** build_constrain_circuit(ClauseF* clauses, int num_clauses, Pair* S, i
     }
     // printf("Sf_len = %d\n", result_len);
 
-    circuit*** sk_f = compute_sk_f(Sf, S_len, msk, k);
+    circuit*** sk_f = compute_sk_f(Sf, *result_len, msk, k);
 
-    // 释放 Sf
-    free(Sf);
 
     return sk_f; // 返回计算出的 sk_f
 }
@@ -627,16 +649,15 @@ circuit ** build_constrain_eval_circuit(ClauseT* clauses, int num_clausesF, int 
         // 编码 (T, v) 为8位
         circuit** encoded_Tv = encode_Tx(k, clauses[i], x);
 
-        // return encoded_Tv;
+
         circuit* match;
         circuit** match_matrix= malloc(num_clausesF * k* sizeof(circuit**));
-
 
         for(int j = 0; j < num_clausesF; j++) {
             circuit** bit_eq = malloc(k * sizeof(circuit*));
             // Compare encoded_Tv with sk_f[j]'s first k bits
             bool equal = true;
-            // return sk_f[1];
+
             for(int bit = 0; bit < k; bit++) {
                 bit_eq[bit] = circuit_not(circuit_xor(encoded_Tv[bit], sk_f[j][bit]));
                 if (bit_eq == NULL) {
@@ -653,6 +674,7 @@ circuit ** build_constrain_eval_circuit(ClauseT* clauses, int num_clausesF, int 
             }
 
         }
+
 
         circuit** key_list = malloc(num_clausesF* k  * sizeof(circuit**));
         for(int i=0;i<num_clausesF;i++){
@@ -699,16 +721,17 @@ circuit ** build_constrain_eval_circuit_fixed_x(ClauseT* clauses, int num_clause
         // 编码 (T, v) 为8位
         // circuit** encoded_Tv = encode_Tx(k, clauses[i], x);
         circuit** encoded_Tv = encode_Tx_fixed_x(k, clauses[i], x);
+
         // return encoded_Tv;
         circuit* match;
         circuit** match_matrix= malloc(num_clausesF * k* sizeof(circuit**));
 
-
+        // return sk_f[1];  
         for(int j = 0; j < num_clausesF; j++) {
             circuit** bit_eq = malloc(k * sizeof(circuit*));
             // Compare encoded_Tv with sk_f[j]'s first k bits
             bool equal = true;
-            // return sk_f[1];
+
             for(int bit = 0; bit < k; bit++) {
                 bit_eq[bit] = circuit_not(circuit_xor(encoded_Tv[bit], sk_f[j][bit]));
                 if (bit_eq == NULL) {
@@ -716,8 +739,11 @@ circuit ** build_constrain_eval_circuit_fixed_x(ClauseT* clauses, int num_clause
                     exit(1);
                 }
             }
-            // printf("bit_eq\n");
 
+
+
+            // printf("bit_eq\n");
+            // return sk_f[1];
             circuit* match = circuit_recurssive_and(bit_eq, k);
 
             for(int i =0;i<k;i++){
@@ -732,6 +758,7 @@ circuit ** build_constrain_eval_circuit_fixed_x(ClauseT* clauses, int num_clause
                 key_list[i*k+j]= circuit_and(match_matrix[i*k+j],sk_f[i][k+j]);
             }           
         }
+
 
 
         circuit** key_T = malloc(k * sizeof(circuit*));

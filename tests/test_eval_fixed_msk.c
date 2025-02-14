@@ -12,9 +12,6 @@
 #include "sampling.h"
 #include "cprf.h"
 
-
-
-
 int main() {
     init_params_default();
     // Printing parameters

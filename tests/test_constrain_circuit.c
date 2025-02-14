@@ -14,11 +14,11 @@
 // #define PRF_K 128
 
 
-bool simple_function(bool* input) {
+static bool simple_function(bool* input) {
     return input[0] ^ input[1];
 }
 
-bool simple_function_clasuse2(bool* input) {
+static bool simple_function_clasuse2(bool* input) {
     return input[0] & input[1];
 }
 
@@ -34,16 +34,16 @@ int main() {
 
     clauses[0].f = simple_function;
     clauses[1].f = simple_function_clasuse2;
-    clauses[0].clauseT.T = (int*)malloc(2 * sizeof(int));
-    clauses[0].clauseT.t_len = 2;
-    clauses[0].clauseT.T[0] = 0;
-    clauses[0].clauseT.T[1] = 2;
-    clauses[1].clauseT.T = (int*)malloc(2 * sizeof(int));
-    clauses[1].clauseT.t_len = 2;
-    clauses[1].clauseT.t_len = 2;
-    clauses[1].clauseT.T = (int*)malloc(2 * sizeof(int));
-    clauses[1].clauseT.T[0] = 2;
-    clauses[1].clauseT.T[1] = 3;
+    clauses[0].T = (int*)malloc(2 * sizeof(int));
+    clauses[0].t_len = 2;
+    clauses[0].T[0] = 0;
+    clauses[0].T[1] = 2;
+    clauses[1].T = (int*)malloc(2 * sizeof(int));
+    clauses[1].t_len = 2;
+    clauses[1].t_len = 2;
+    clauses[1].T = (int*)malloc(2 * sizeof(int));
+    clauses[1].T[0] = 2;
+    clauses[1].T[1] = 3;
     // Printing parameters
     printf("Testing circuit with parameters\n");
     print_params();

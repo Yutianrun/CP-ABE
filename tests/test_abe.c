@@ -1,7 +1,9 @@
 // Language: c
+#define _POSIX_C_SOURCE 199309L
 #include <assert.h>
 #include <assert.h>
 #include <stdio.h>
+#include <time.h>
 #include "abe.h"
 #include "cprf.h"
 
@@ -11,11 +13,7 @@ ABE_setup_result  test_ABE_Setup() {
     real start, end;
     // Separator line indicating the start of the setup process
     printf("------Start ABE_Setup process------\n");
-    ABE_setup_result res = ABE_Setup(test_msk);
-    CHRONO("Generated A in %fs\n", {
-        for (int i = 0; i < PARAMS.K + 1; i++) sample_Zq_uniform_matrix(res.pp.A[i]);
-    });
-        
+    ABE_setup_result res = ABE_Setup(test_msk);        
     // Check public parameters
     assert(res.pp.B.data != NULL);
     assert(res.pp.A[0].data != NULL);
@@ -95,11 +93,11 @@ ABE_setup_result  test_ABE_Setup() {
     return res;
 }
 
-bool simple_function(bool* input) {
+static bool simple_function(bool* input) {
     return input[0] ^ input[1];
 }
 
-bool simple_function_clasuse2(bool* input) {
+static bool simple_function_clasuse2(bool* input) {
     return input[0] & input[1];
 }
 
@@ -112,16 +110,16 @@ ABE_ct test_ABE_Enc(ABE_setup_result setup_res) {
     ClauseF* clauses = (ClauseF*)malloc(num_clauses * sizeof(ClauseF));
     // Clause 0
     clauses[0].f = simple_function;
-    clauses[0].clauseT.t_len = 2;
-    clauses[0].clauseT.T = (int*)malloc(2 * sizeof(int));
-    clauses[0].clauseT.T[0] = 0;
-    clauses[0].clauseT.T[1] = 2;
+    clauses[0].t_len = 2;
+    clauses[0].T = (int*)malloc(2 * sizeof(int));
+    clauses[0].T[0] = 0;
+    clauses[0].T[1] = 2;
     // Clause 1
     clauses[1].f = simple_function_clasuse2;
-    clauses[1].clauseT.t_len = 2;
-    clauses[1].clauseT.T = (int*)malloc(2 * sizeof(int));
-    clauses[1].clauseT.T[0] = 2;
-    clauses[1].clauseT.T[1] = 3;
+    clauses[1].t_len = 2;
+    clauses[1].T = (int*)malloc(2 * sizeof(int));
+    clauses[1].T[0] = 2;
+    clauses[1].T[1] = 3;
 
     // Separator line indicating the start of the encryption process
     printf("------start ABE_Enc process------\n");
@@ -141,7 +139,7 @@ ABE_ct test_ABE_Enc(ABE_setup_result setup_res) {
 
     // 释放 clauses 内部分配的数组
     for (int i = 0; i < num_clauses; i++) {
-        free(clauses[i].clauseT.T);
+        free(clauses[i].T);
     }
     free(clauses);
 
@@ -201,6 +199,7 @@ void test_ABE_Dec(ABE_ct ct, ABE_skx skx, ABE_setup_result setup_res) {
 int main(void) {
 
     ABE_setup_result setup_res = test_ABE_Setup();
+
     ABE_ct ct = test_ABE_Enc(setup_res);
 
     int count = 0;

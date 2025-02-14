@@ -8,16 +8,17 @@
 #include "gen_circuit.h"
 #include "matrix.h"
 #include "sampling.h"
+#include "cprf.h"
 
 int main() {
     init_sampler();
     int32_t N = 1;
     // // int32_t K = 56;
-    // int32_t K = 20;
-    int32_t K = 4;
+    int32_t K = 20;
+    // int32_t K = 4;
     // // int64_t Q = 72057594037927936;
-    // int64_t Q = 870367;
-    int64_t Q = 16;
+    int64_t Q = 870367;
+    // int64_t Q = 16;
 
 
     int32_t P = 1;
@@ -33,9 +34,9 @@ int main() {
     print_params();
 
     // Generating A
-    matrix* A = new_matrixes(PARAMS.Att_num + 1, PARAMS.N, PARAMS.L);
+    matrix* A = new_matrixes(att_num + 1, PARAMS.N, PARAMS.L);
     CHRONO("Generated A in %fs\n", {
-        for (int i = 0; i < PARAMS.K + 1; i++) sample_Zq_uniform_matrix_64(A[i]);
+        for (int i = 0; i < att_num + 1; i++) sample_Zq_uniform_matrix_64(A[i]);
     });
 
     // Testing G * G^-1(A) = A
@@ -43,37 +44,7 @@ int main() {
     matrix res = new_matrix(PARAMS.N, PARAMS.L);
 
 
-    CHRONO("Checked G * G^-1(A) = A in %fs\n", {
-        inv_G(A[0], inv);
-
-        // printf("A[0] : \n");
-        // print_matrix(A[0]);
-
-        // printf("inv : \n");
-        // print_matrix(inv);
-
-        // printf("G : \n");
-        // print_matrix(G);
-        mul_matrix(G, inv, res);
-
-        // printf("G * G^-1(A) : \n");
-        // print_matrix(res);
-
-        // assert(equals(A[0], res));
-    });
-    free_matrix(inv);
-    free_matrix(res);
-
-    // Example hand-crafted circuit
-    // f(x) = not(x1 | (x2 & x3)) = not(x1) & (not(x2) | not(x3))
-    // 2nd version gives extremely similar results
-    // circuit* f = circuit_not(circuit_or(
-        // gen_leaf(1, true), circuit_and(gen_leaf(2, true), gen_leaf(3, true))));
-
-    // circuit* f = circuit_xor(gen_leaf(1,true), gen_leaf(2,true));
-
-    // {
-    int att = 56;
+    int att = att_num;
     circuit** list = (circuit**)malloc(att * sizeof(circuit*));
 
     for(int i=0;i<att;i++)
@@ -83,20 +54,21 @@ int main() {
 
     // circuit* f = circuit_consecutive_and(list, 9);
 
-    circuit* f = circuit_consecutive_or(list, 10);
+    circuit* f = circuit_consecutive_or(list, 7);
     // }
 
 
-    // circuit* f = circuit_consecutive_and(list, 4);
+    // circuit* f = circuit_consecutive_and(list, 8);
 
     // printf("Circuit : ");
     // print_circuit(*f);
     // printf("\n");
 
     matrix Af = compute_Af(A, *f);
+    
 
     matrix T = new_matrix(PARAMS.N, PARAMS.L);
-    matrix BIG = new_matrix(PARAMS.N, PARAMS.L * PARAMS.K);
+    matrix BIG = new_matrix(PARAMS.N, PARAMS.L * PRF_K);
 
     int x_max = 16;
     // for (int i = 0; i < PARAMS.K; i++) x_max *= 2;
@@ -105,13 +77,14 @@ int main() {
     for (attribute x = 0; x < x_max; x++) {
         printf("f(%d)=%d\n", x, compute_f(*f, x));
         sprintf(output, "BIG * H = Af + f(x)G for x = %d : done in %%fs\n", x);
-        CHRONO(output, {
-            matrix H = compute_H(A, *f, x);
+        // CHRONO(output, {
+            matrix H = compute_H_prfk(A, *f, x);
+            printf("dimension of H: %d x %d\n", H.rows, H.columns);
             printf("Norm H : %f\n", norm(H));
             matrix R = copy_matrix(Af);
             if (compute_f(*f, x)) add_matrix(R, G, R);
 
-            for (int i = 1; i < PARAMS.K + 1; i++) {
+            for (int i = 1; i < PRF_K+ 1; i++) {
                 matrix ti = copy_matrix(A[i]);
                 if (get_xn(x, i)) add_matrix(ti, G, ti);
                 for (int j = 0; j < PARAMS.N; j++)      // ti.rows = PARAMS.N
@@ -122,10 +95,10 @@ int main() {
             }
             mul_matrix(BIG, H, T);
 
-            // // assert(equals(R, T));
+            assert(equals(R, T));
             // free_matrix(H);
             // free_matrix(R);
-        });
+        // });
     }
 
     // free_matrix(BIG);

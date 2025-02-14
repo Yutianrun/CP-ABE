@@ -12,7 +12,7 @@ static bool initialized = false;
 
 void init_params(int32_t N, int64_t Q, int32_t K, int32_t P, real SIGMA, int32_t att_num) {
     // We can initialize parameters only once
-    assert(!initialized);
+    // assert(!initialized);
 
     // Checking parameters
     // assert(0 < N && N <= UINT32_MAX);

@@ -11,15 +11,15 @@
 #include "matrix.h"
 #include "sampling.h"
 #include "cprf.h"
+#include <stdlib.h>
 
 
 
-
-bool simple_function(bool* input) {
+static simple_function(bool* input) {
     return input[0] ^ input[1];
 }
 
-bool simple_function_clasuse2(bool* input) {
+static bool simple_function_clasuse2(bool* input) {
     return input[0] & input[1];
 }
 
@@ -41,17 +41,17 @@ int main() {
     clauses[0].f = simple_function;
     clauses[1].f = simple_function_clasuse2;
 
-    clauses[0].clauseT.T = (int*)malloc(2 * sizeof(int));
-    clauses[0].clauseT.t_len = 2;
-    clauses[0].clauseT.T[0] = 0;
-    clauses[0].clauseT.T[1] = 2;
+    clauses[0].T = (int*)malloc(2 * sizeof(int));
+    clauses[0].t_len = 2;
+    clauses[0].T[0] = 0;
+    clauses[0].T[1] = 2;
 
-    clauses[1].clauseT.T = (int*)malloc(2 * sizeof(int));
-    clauses[1].clauseT.t_len = 2;
-    clauses[1].clauseT.t_len = 2;
-    clauses[1].clauseT.T = (int*)malloc(2 * sizeof(int));
-    clauses[1].clauseT.T[0] = 2;
-    clauses[1].clauseT.T[1] = 3;
+    clauses[1].T = (int*)malloc(2 * sizeof(int));
+    clauses[1].t_len = 2;
+    clauses[1].t_len = 2;
+    clauses[1].T = (int*)malloc(2 * sizeof(int));
+    clauses[1].T[0] = 2;
+    clauses[1].T[1] = 3;
 
     // 构建 PRF 电路
     
@@ -63,7 +63,7 @@ int main() {
         msk[i] = gen_leaf(i+1, true);
     }
     int S_len ; // 示例长度
-    Pair* S = (Pair*)malloc(S_len * sizeof(Pair));
+    Pair* S ;
 
     circuit*** sk_f = build_constrain_circuit(clauses, num_clauses, S, &S_len, prf_k, msk);
 
